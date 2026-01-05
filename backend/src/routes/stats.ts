@@ -1,39 +1,38 @@
 import { Router } from "express";
 import { dbGet } from "../utils/db-client.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { ok } from "shared/response";
+import { asyncHandler } from "shared/error-handler";
 
 export const statsRoutes = Router();
 
 statsRoutes.use(authMiddleware);
 
 // GET /stats - Overall statistics
-statsRoutes.get("/", async (_req, res) => {
-  try {
+statsRoutes.get(
+  "/",
+  asyncHandler(async (_req: any, res: any) => {
     const stats = await dbGet("/usage-logs/stats");
-    res.json(stats);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, stats);
+  })
+);
 
 // GET /stats/today
-statsRoutes.get("/today", async (_req, res) => {
-  try {
+statsRoutes.get(
+  "/today",
+  asyncHandler(async (_req: any, res: any) => {
     const stats = await dbGet("/usage-logs/stats/today");
-    res.json(stats);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, stats);
+  })
+);
 
 // GET /stats/logs - Usage logs
-statsRoutes.get("/logs", async (req, res) => {
-  try {
+statsRoutes.get(
+  "/logs",
+  asyncHandler(async (req: any, res: any) => {
     const limit = req.query.limit || 100;
-    const offset = req.query.offset || 0;
-    const logs = await dbGet(`/usage-logs?limit=${limit}&offset=${offset}`);
-    res.json(logs);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const page = req.query.page || 1;
+    const logs = await dbGet(`/usage-logs?limit=${limit}&page=${page}`);
+    return ok(res, logs);
+  })
+);

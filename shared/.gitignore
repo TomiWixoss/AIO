@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+*.js
+*.js.map
+*.d.ts
+
+# Keep TypeScript source files
+!*.ts
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

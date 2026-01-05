@@ -4,6 +4,9 @@ import jwt from "jsonwebtoken";
 import { config } from "../config/index.js";
 import { dbGet, dbPost } from "../utils/db-client.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { ok, created } from "shared/response";
+import { BadRequest, Unauthorized, Forbidden } from "shared/errors";
+import { asyncHandler } from "shared/error-handler";
 
 export const authRoutes = Router();
 
@@ -15,12 +18,13 @@ interface Admin {
 }
 
 // POST /auth/login
-authRoutes.post("/login", async (req, res) => {
-  try {
+authRoutes.post(
+  "/login",
+  asyncHandler(async (req: any, res: any) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password required" });
+      throw BadRequest("Email and password are required");
     }
 
     const admin = await dbGet<Admin>(
@@ -28,13 +32,13 @@ authRoutes.post("/login", async (req, res) => {
     ).catch(() => null);
 
     if (!admin) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      throw Unauthorized("Invalid credentials");
     }
 
     const validPassword = await bcrypt.compare(password, admin.password_hash);
 
     if (!validPassword) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      throw Unauthorized("Invalid credentials");
     }
 
     const token = jwt.sign(
@@ -43,32 +47,27 @@ authRoutes.post("/login", async (req, res) => {
       { expiresIn: config.jwt.expiresIn as jwt.SignOptions["expiresIn"] }
     );
 
-    res.json({
+    return ok(res, {
       token,
       admin: { id: admin.id, email: admin.email, name: admin.name },
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  })
+);
 
 // POST /auth/register (first admin only)
-authRoutes.post("/register", async (req, res) => {
-  try {
+authRoutes.post(
+  "/register",
+  asyncHandler(async (req: any, res: any) => {
     const { email, password, name } = req.body;
 
     if (!email || !password || !name) {
-      return res
-        .status(400)
-        .json({ error: "Email, password and name required" });
+      throw BadRequest("Email, password and name are required");
     }
 
     // Check if any admin exists
     const admins = await dbGet<Admin[]>("/admins");
     if (admins.length > 0) {
-      return res
-        .status(403)
-        .json({ error: "Admin already exists. Use login." });
+      throw Forbidden("Admin already exists. Use login.");
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -82,21 +81,19 @@ authRoutes.post("/register", async (req, res) => {
       expiresIn: config.jwt.expiresIn as jwt.SignOptions["expiresIn"],
     });
 
-    res.status(201).json({
+    return created(res, {
       token,
       admin: { id: result.id, email, name },
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  })
+);
 
 // GET /auth/me
-authRoutes.get("/me", authMiddleware, async (req: AuthRequest, res) => {
-  try {
+authRoutes.get(
+  "/me",
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res: any) => {
     const admin = await dbGet<Admin>(`/admins/${req.admin!.id}`);
-    res.json(admin);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, admin);
+  })
+);

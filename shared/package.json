@@ -1,0 +1,29 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": "./index.js",
+    "./response": "./response.js",
+    "./errors": "./errors.js",
+    "./error-handler": "./error-handler.js"
+  },
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "http-errors": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/http-errors": "^2.0.5",
+    "typescript": "^5.9.3"
+  }
+}

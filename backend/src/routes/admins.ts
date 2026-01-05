@@ -2,67 +2,65 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { dbGet, dbPost, dbPut, dbDelete } from "../utils/db-client.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { ok, created } from "shared/response";
+import { BadRequest } from "shared/errors";
+import { asyncHandler } from "shared/error-handler";
 
 export const adminRoutes = Router();
 
 adminRoutes.use(authMiddleware);
 
 // GET all admins
-adminRoutes.get("/", async (_req, res) => {
-  try {
+adminRoutes.get(
+  "/",
+  asyncHandler(async (_req: any, res: any) => {
     const admins = await dbGet("/admins");
-    res.json(admins);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, admins);
+  })
+);
 
 // GET admin by id
-adminRoutes.get("/:id", async (req, res) => {
-  try {
+adminRoutes.get(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
     const admin = await dbGet(`/admins/${req.params.id}`);
-    res.json(admin);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, admin);
+  })
+);
 
 // POST create admin
-adminRoutes.post("/", async (req, res) => {
-  try {
+adminRoutes.post(
+  "/",
+  asyncHandler(async (req: any, res: any) => {
     const { email, password, name } = req.body;
     if (!email || !password || !name) {
-      return res.status(400).json({ error: "email, password, name required" });
+      throw BadRequest("email, password, name are required");
     }
     const password_hash = await bcrypt.hash(password, 10);
     const result = await dbPost("/admins", { email, password_hash, name });
-    res.status(201).json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return created(res, result);
+  })
+);
 
 // PUT update admin
-adminRoutes.put("/:id", async (req, res) => {
-  try {
+adminRoutes.put(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
     const { name, password } = req.body;
     const updateData: any = {};
     if (name) updateData.name = name;
     if (password) updateData.password_hash = await bcrypt.hash(password, 10);
 
     await dbPut(`/admins/${req.params.id}`, updateData);
-    res.json({ message: "Updated" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, { id: parseInt(req.params.id) }, "Updated successfully");
+  })
+);
 
 // DELETE admin
-adminRoutes.delete("/:id", async (req, res) => {
-  try {
+adminRoutes.delete(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
     await dbDelete(`/admins/${req.params.id}`);
-    res.json({ message: "Deleted" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, null, "Deleted successfully");
+  })
+);

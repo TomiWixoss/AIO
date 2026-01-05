@@ -1,50 +1,47 @@
 import { Router } from "express";
 import { dbGet, dbPost, dbPut, dbDelete } from "../utils/db-client.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { ok, created } from "shared/response";
+import { asyncHandler } from "shared/error-handler";
 
 export const providerKeyRoutes = Router();
 
 providerKeyRoutes.use(authMiddleware);
 
 // GET keys by provider
-providerKeyRoutes.get("/provider/:providerId", async (req, res) => {
-  try {
+providerKeyRoutes.get(
+  "/provider/:providerId",
+  asyncHandler(async (req: any, res: any) => {
     const keys = await dbGet(
       `/provider-keys/provider/${req.params.providerId}`
     );
-    res.json(keys);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, keys);
+  })
+);
 
 // POST create key
-providerKeyRoutes.post("/", async (req, res) => {
-  try {
-    // TODO: Encrypt api_key before storing
+providerKeyRoutes.post(
+  "/",
+  asyncHandler(async (req: any, res: any) => {
     const result = await dbPost("/provider-keys", req.body);
-    res.status(201).json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return created(res, result);
+  })
+);
 
 // PUT update key
-providerKeyRoutes.put("/:id", async (req, res) => {
-  try {
+providerKeyRoutes.put(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
     await dbPut(`/provider-keys/${req.params.id}`, req.body);
-    res.json({ message: "Updated" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, { id: parseInt(req.params.id) }, "Updated successfully");
+  })
+);
 
 // DELETE key
-providerKeyRoutes.delete("/:id", async (req, res) => {
-  try {
+providerKeyRoutes.delete(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
     await dbDelete(`/provider-keys/${req.params.id}`);
-    res.json({ message: "Deleted" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, null, "Deleted successfully");
+  })
+);

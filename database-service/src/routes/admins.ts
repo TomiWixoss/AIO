@@ -1,88 +1,103 @@
 import { Router } from "express";
 import { pool } from "../config/database.js";
+import { ok, created } from "shared/response";
+import { NotFound, BadRequest } from "shared/errors";
+import { asyncHandler } from "shared/error-handler";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const adminRoutes = Router();
 
 // GET all admins
-adminRoutes.get("/", async (_req, res) => {
-  try {
+adminRoutes.get(
+  "/",
+  asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT id, email, name, created_at FROM admins"
     );
-    res.json(rows);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, rows);
+  })
+);
 
 // GET admin by id
-adminRoutes.get("/:id", async (req, res) => {
-  try {
+adminRoutes.get(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT id, email, name, created_at FROM admins WHERE id = ?",
       [req.params.id]
     );
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Admin not found" });
-    }
-    res.json(rows[0]);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    if (rows.length === 0) throw NotFound("Admin");
+    return ok(res, rows[0]);
+  })
+);
 
 // GET admin by email (for login)
-adminRoutes.get("/email/:email", async (req, res) => {
-  try {
+adminRoutes.get(
+  "/email/:email",
+  asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM admins WHERE email = ?",
       [req.params.email]
     );
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Admin not found" });
-    }
-    res.json(rows[0]);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    if (rows.length === 0) throw NotFound("Admin");
+    return ok(res, rows[0]);
+  })
+);
 
 // POST create admin
-adminRoutes.post("/", async (req, res) => {
-  try {
+adminRoutes.post(
+  "/",
+  asyncHandler(async (req: any, res: any) => {
     const { email, password_hash, name } = req.body;
+    if (!email || !password_hash || !name) {
+      throw BadRequest("email, password_hash, name are required");
+    }
     const [result] = await pool.query<ResultSetHeader>(
       "INSERT INTO admins (email, password_hash, name) VALUES (?, ?, ?)",
       [email, password_hash, name]
     );
-    res.status(201).json({ id: result.insertId, email, name });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return created(res, { id: result.insertId, email, name });
+  })
+);
 
 // PUT update admin
-adminRoutes.put("/:id", async (req, res) => {
-  try {
-    const { email, name } = req.body;
-    await pool.query("UPDATE admins SET email = ?, name = ? WHERE id = ?", [
-      email,
-      name,
-      req.params.id,
-    ]);
-    res.json({ message: "Updated" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+adminRoutes.put(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
+    const { name, password_hash } = req.body;
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (name) {
+      updates.push("name = ?");
+      values.push(name);
+    }
+    if (password_hash) {
+      updates.push("password_hash = ?");
+      values.push(password_hash);
+    }
+
+    if (updates.length === 0) throw BadRequest("No fields to update");
+
+    values.push(req.params.id);
+    const [result] = await pool.query<ResultSetHeader>(
+      `UPDATE admins SET ${updates.join(", ")} WHERE id = ?`,
+      values
+    );
+    if (result.affectedRows === 0) throw NotFound("Admin");
+    return ok(res, { id: parseInt(req.params.id) }, "Updated successfully");
+  })
+);
 
 // DELETE admin
-adminRoutes.delete("/:id", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM admins WHERE id = ?", [req.params.id]);
-    res.json({ message: "Deleted" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+adminRoutes.delete(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
+    const [result] = await pool.query<ResultSetHeader>(
+      "DELETE FROM admins WHERE id = ?",
+      [req.params.id]
+    );
+    if (result.affectedRows === 0) throw NotFound("Admin");
+    return ok(res, null, "Deleted successfully");
+  })
+);

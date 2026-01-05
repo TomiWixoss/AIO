@@ -1,68 +1,64 @@
 import { Router } from "express";
 import { pool } from "../config/database.js";
+import { ok, created } from "shared/response";
+import { NotFound, BadRequest } from "shared/errors";
+import { asyncHandler } from "shared/error-handler";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const providerRoutes = Router();
 
 // GET all providers
-providerRoutes.get("/", async (_req, res) => {
-  try {
+providerRoutes.get(
+  "/",
+  asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM providers ORDER BY priority DESC, name"
     );
-    res.json(rows);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, rows);
+  })
+);
 
 // GET active providers only
-providerRoutes.get("/active", async (_req, res) => {
-  try {
+providerRoutes.get(
+  "/active",
+  asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM providers WHERE is_active = TRUE ORDER BY priority DESC"
     );
-    res.json(rows);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return ok(res, rows);
+  })
+);
 
 // GET provider by id
-providerRoutes.get("/:id", async (req, res) => {
-  try {
+providerRoutes.get(
+  "/:id(\\d+)",
+  asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM providers WHERE id = ?",
       [req.params.id]
     );
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Provider not found" });
-    }
-    res.json(rows[0]);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    if (rows.length === 0) throw NotFound("Provider");
+    return ok(res, rows[0]);
+  })
+);
 
 // GET provider by name
-providerRoutes.get("/name/:name", async (req, res) => {
-  try {
+providerRoutes.get(
+  "/name/:name",
+  asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM providers WHERE name = ?",
       [req.params.name]
     );
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Provider not found" });
-    }
-    res.json(rows[0]);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    if (rows.length === 0) throw NotFound("Provider");
+    return ok(res, rows[0]);
+  })
+);
 
 // POST create provider
-providerRoutes.post("/", async (req, res) => {
-  try {
+providerRoutes.post(
+  "/",
+  asyncHandler(async (req: any, res: any) => {
     const {
       name,
       display_name,
@@ -71,6 +67,9 @@ providerRoutes.post("/", async (req, res) => {
       priority,
       free_tier_info,
     } = req.body;
+    if (!name || !display_name) {
+      throw BadRequest("name and display_name are required");
+    }
     const [result] = await pool.query<ResultSetHeader>(
       "INSERT INTO providers (name, display_name, base_url, is_active, priority, free_tier_info) VALUES (?, ?, ?, ?, ?, ?)",
       [
@@ -82,19 +81,18 @@ providerRoutes.post("/", async (req, res) => {
         free_tier_info,
       ]
     );
-    res.status(201).json({ id: result.insertId, name, display_name });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    return created(res, { id: result.insertId, name, display_name });
+  })
+);
 
 // PUT update provider
-providerRoutes.put("/:id", async (req, res) => {
-  try {
+providerRoutes.put(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
     const { display_name, base_url, is_active, priority, free_tier_info } =
       req.body;
-    await pool.query(
-      "UPDATE providers SET display_name = ?, base_url = ?, is_active = ?, priority = ?, free_tier_info = ? WHERE id = ?",
+    const [result] = await pool.query<ResultSetHeader>(
+      "UPDATE providers SET display_name = COALESCE(?, display_name), base_url = COALESCE(?, base_url), is_active = COALESCE(?, is_active), priority = COALESCE(?, priority), free_tier_info = COALESCE(?, free_tier_info) WHERE id = ?",
       [
         display_name,
         base_url,
@@ -104,18 +102,20 @@ providerRoutes.put("/:id", async (req, res) => {
         req.params.id,
       ]
     );
-    res.json({ message: "Updated" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    if (result.affectedRows === 0) throw NotFound("Provider");
+    return ok(res, { id: parseInt(req.params.id) }, "Updated successfully");
+  })
+);
 
 // DELETE provider
-providerRoutes.delete("/:id", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM providers WHERE id = ?", [req.params.id]);
-    res.json({ message: "Deleted" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+providerRoutes.delete(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
+    const [result] = await pool.query<ResultSetHeader>(
+      "DELETE FROM providers WHERE id = ?",
+      [req.params.id]
+    );
+    if (result.affectedRows === 0) throw NotFound("Provider");
+    return ok(res, null, "Deleted successfully");
+  })
+);

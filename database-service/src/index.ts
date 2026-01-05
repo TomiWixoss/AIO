@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { errorHandler, notFoundHandler } from "shared/error-handler";
 import { testConnection } from "./config/database.js";
 import { adminRoutes } from "./routes/admins.js";
 import { providerRoutes } from "./routes/providers.js";
@@ -31,11 +32,18 @@ app.use("/usage-logs", usageLogRoutes);
 app.get("/health", async (_req, res) => {
   const dbConnected = await testConnection();
   res.json({
-    status: dbConnected ? "ok" : "error",
-    database: dbConnected ? "connected" : "disconnected",
-    timestamp: new Date().toISOString(),
+    success: true,
+    data: {
+      status: dbConnected ? "ok" : "error",
+      database: dbConnected ? "connected" : "disconnected",
+      timestamp: new Date().toISOString(),
+    },
   });
 });
+
+// Error handling
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`🗄️ Database Service running on port ${PORT}`);

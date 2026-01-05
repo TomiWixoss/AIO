@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { config } from "./config/index.js";
+import { errorHandler, notFoundHandler } from "shared/error-handler";
 import { authRoutes } from "./routes/auth.js";
 import { adminRoutes } from "./routes/admins.js";
 import { providerRoutes } from "./routes/providers.js";
@@ -26,14 +27,21 @@ app.use("/stats", statsRoutes);
 // Health check
 app.get("/health", (_req, res) => {
   res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    services: {
-      database: config.services.database,
-      gateway: config.services.gateway,
+    success: true,
+    data: {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      services: {
+        database: config.services.database,
+        gateway: config.services.gateway,
+      },
     },
   });
 });
+
+// Error handling
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 app.listen(config.port, () => {
   console.log(`🚀 Backend running on port ${config.port}`);
