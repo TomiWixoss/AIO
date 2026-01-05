@@ -350,3 +350,31 @@ chatRoutes.get("/streams/active", async (_req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// GET /chat/messages/:messageId - Get message content by ID
+chatRoutes.get("/messages/:messageId", async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    try {
+      const message = await dbGet<DBMessage>(`/chat-messages/${messageId}`);
+
+      res.json({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+      });
+    } catch (dbError: any) {
+      // Database service trả về 404
+      if (
+        dbError.message?.includes("not found") ||
+        dbError.message?.includes("Not found")
+      ) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      throw dbError;
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
