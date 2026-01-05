@@ -80,35 +80,52 @@ export class ProviderFactory {
 
     const apiKey = await decryptApiKey(key.credentials_encrypted);
 
-    try {
-      const response = await providerInstance.chatCompletion(request, apiKey);
-      await incrementKeyUsage(key.id);
-      return { response, keyId: key.id };
-    } catch (error: any) {
-      // Check if rate limit error
-      const isRateLimit =
-        error.message?.includes("rate") ||
-        error.message?.includes("limit") ||
-        error.message?.includes("429");
-      await markKeyError(key.id, error.message, isRateLimit);
+    // Try keys with rotation on failure
+    const triedKeyIds = new Set<number>();
+    let currentKey = key;
+    let currentApiKey = apiKey;
 
-      // Try next key if available
-      if (isRateLimit) {
-        logger.warn(`Key ${key.id} hit rate limit, trying next key`);
-        const nextKey = await getActiveKey(provider.id);
-        if (nextKey && nextKey.id !== key.id) {
-          const nextApiKey = await decryptApiKey(nextKey.credentials_encrypted);
-          const response = await providerInstance.chatCompletion(
-            request,
-            nextApiKey
-          );
-          await incrementKeyUsage(nextKey.id);
-          return { response, keyId: nextKey.id };
+    while (triedKeyIds.size < 30) {
+      // Max 30 keys to try
+      triedKeyIds.add(currentKey.id);
+
+      try {
+        const response = await providerInstance.chatCompletion(
+          request,
+          currentApiKey
+        );
+        await incrementKeyUsage(currentKey.id);
+        return { response, keyId: currentKey.id };
+      } catch (error: any) {
+        const errorMsg = error.message || "";
+        // Check if should try next key (rate limit, leaked, permission denied, 403, 429)
+        const shouldRotate =
+          errorMsg.includes("rate") ||
+          errorMsg.includes("limit") ||
+          errorMsg.includes("429") ||
+          errorMsg.includes("403") ||
+          errorMsg.includes("leaked") ||
+          errorMsg.includes("PERMISSION_DENIED");
+
+        await markKeyError(currentKey.id, errorMsg, shouldRotate);
+
+        if (shouldRotate) {
+          logger.warn(`Key ${currentKey.id} failed, trying next key`, {
+            error: errorMsg.substring(0, 100),
+          });
+          const nextKey = await getActiveKey(provider.id);
+          if (nextKey && !triedKeyIds.has(nextKey.id)) {
+            currentKey = nextKey;
+            currentApiKey = await decryptApiKey(nextKey.credentials_encrypted);
+            continue;
+          }
         }
-      }
 
-      throw error;
+        throw error;
+      }
     }
+
+    throw new GatewayError(503, "All API keys exhausted");
   }
 
   static async streamChatCompletion(
