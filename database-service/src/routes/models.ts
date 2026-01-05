@@ -12,10 +12,10 @@ modelRoutes.get(
   "/",
   asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT m.*, p.name as provider_name, p.display_name as provider_display_name 
+      `SELECT m.*, p.provider_id as provider_name 
      FROM models m 
      JOIN providers p ON m.provider_id = p.id 
-     ORDER BY p.name, m.display_name`
+     ORDER BY p.provider_id, m.display_name`
     );
     return ok(res, rows);
   })
@@ -26,7 +26,7 @@ modelRoutes.get(
   "/active",
   asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT m.*, p.name as provider_name 
+      `SELECT m.*, p.provider_id as provider_name 
      FROM models m 
      JOIN providers p ON m.provider_id = p.id 
      WHERE m.is_active = TRUE AND p.is_active = TRUE`
@@ -40,7 +40,7 @@ modelRoutes.get(
   "/fallback",
   asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT m.*, p.name as provider_name 
+      `SELECT m.*, p.provider_id as provider_name 
      FROM models m 
      JOIN providers p ON m.provider_id = p.id 
      WHERE m.is_fallback = TRUE AND m.is_active = TRUE AND p.is_active = TRUE`

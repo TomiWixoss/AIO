@@ -128,10 +128,19 @@ chatRoutes.post("/", async (req, res) => {
     }
 
     // 2. History từ DB (không bao gồm system messages cũ)
+    // History đã bao gồm user message mới vì đã save ở trên
     llmMessages.push(...historyMessages.filter((m) => m.role !== "system"));
 
-    // 3. User message mới
-    llmMessages.push({ role: "user", content: userMessage });
+    // 3. User message mới (chỉ thêm nếu chưa có trong history)
+    // Kiểm tra xem message cuối trong history có phải là user message mới không
+    const lastHistoryMsg = historyMessages[historyMessages.length - 1];
+    if (
+      !lastHistoryMsg ||
+      lastHistoryMsg.content !== userMessage ||
+      lastHistoryMsg.role !== "user"
+    ) {
+      llmMessages.push({ role: "user", content: userMessage });
+    }
 
     // Handle streaming
     if (stream) {

@@ -12,7 +12,7 @@ chatMessageRoutes.get(
   "/session/:sessionId",
   asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT cm.*, m.model_id as model_name, p.name as provider_name 
+      `SELECT cm.*, m.model_id as model_name, p.provider_id as provider_name 
      FROM chat_messages cm 
      LEFT JOIN models m ON cm.model_id = m.id 
      LEFT JOIN providers p ON cm.provider_id = p.id 

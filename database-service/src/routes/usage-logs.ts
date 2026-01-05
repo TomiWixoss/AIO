@@ -18,7 +18,7 @@ usageLogRoutes.get(
     const [[countResult], [rows]] = await Promise.all([
       pool.query<RowDataPacket[]>("SELECT COUNT(*) as total FROM usage_logs"),
       pool.query<RowDataPacket[]>(
-        `SELECT ul.*, p.name as provider_name, m.model_id as model_name 
+        `SELECT ul.*, p.provider_id as provider_name, m.model_id as model_name 
        FROM usage_logs ul 
        LEFT JOIN providers p ON ul.provider_id = p.id 
        LEFT JOIN models m ON ul.model_id = m.id 
@@ -67,10 +67,10 @@ usageLogRoutes.get(
           "SELECT SUM(prompt_tokens) as prompt, SUM(completion_tokens) as completion FROM usage_logs"
         ),
         pool.query<RowDataPacket[]>(
-          `SELECT p.name, COUNT(*) as requests, SUM(ul.prompt_tokens + ul.completion_tokens) as tokens 
+          `SELECT p.provider_id as name, COUNT(*) as requests, SUM(ul.prompt_tokens + ul.completion_tokens) as tokens 
        FROM usage_logs ul 
        JOIN providers p ON ul.provider_id = p.id 
-       GROUP BY ul.provider_id, p.name`
+       GROUP BY ul.provider_id, p.provider_id`
         ),
         pool.query<RowDataPacket[]>(
           "SELECT status, COUNT(*) as count FROM usage_logs GROUP BY status"
