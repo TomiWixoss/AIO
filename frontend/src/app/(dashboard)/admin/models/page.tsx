@@ -1,9 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Loader2, Bot } from "lucide-react";
-import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,110 +38,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { modelsApi, providersApi, Model } from "@/lib/api";
+import { useModels } from "@/hooks";
 
 export default function ModelsPage() {
-  const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingModel, setEditingModel] = useState<Model | null>(null);
-  const [formData, setFormData] = useState({
-    provider_id: 0,
-    model_id: "",
-    display_name: "",
-    context_length: 0,
-    is_active: true,
-  });
-
-  const { data: modelsData, isLoading } = useQuery({
-    queryKey: ["models"],
-    queryFn: () => modelsApi.getAll(),
-  });
-
-  const { data: providersData } = useQuery({
-    queryKey: ["providers"],
-    queryFn: () => providersApi.getAll(),
-  });
-
-  const models = modelsData?.data?.data || [];
-  const providers = providersData?.data?.data || [];
-
-  const createMutation = useMutation({
-    mutationFn: (data: Partial<Model>) => modelsApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["models"] });
-      toast.success("Tạo model thành công");
-      closeDialog();
-    },
-    onError: () => toast.error("Lỗi tạo model"),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Model> }) =>
-      modelsApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["models"] });
-      toast.success("Cập nhật thành công");
-      closeDialog();
-    },
-    onError: () => toast.error("Lỗi cập nhật"),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => modelsApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["models"] });
-      toast.success("Xóa thành công");
-    },
-    onError: () => toast.error("Lỗi xóa model"),
-  });
-
-  const openDialog = (model?: Model) => {
-    if (model) {
-      setEditingModel(model);
-      setFormData({
-        provider_id: model.provider_id,
-        model_id: model.model_id,
-        display_name: model.display_name,
-        context_length: model.context_length || 0,
-        is_active: model.is_active,
-      });
-    } else {
-      setEditingModel(null);
-      setFormData({
-        provider_id: providers[0]?.id || 0,
-        model_id: "",
-        display_name: "",
-        context_length: 0,
-        is_active: true,
-      });
-    }
-    setIsDialogOpen(true);
-  };
-
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingModel(null);
-  };
-
-  const handleSubmit = () => {
-    if (editingModel) {
-      updateMutation.mutate({ id: editingModel.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
-
-  const toggleActive = (model: Model) => {
-    updateMutation.mutate({
-      id: model.id,
-      data: { is_active: !model.is_active },
-    });
-  };
-
-  const getProviderName = (providerId: number) => {
-    const provider = providers.find((p) => p.id === providerId);
-    return provider?.provider_id || "N/A";
-  };
+  const {
+    models,
+    providers,
+    isLoading,
+    isDialogOpen,
+    setIsDialogOpen,
+    editingModel,
+    formData,
+    updateFormData,
+    openDialog,
+    closeDialog,
+    handleSubmit,
+    toggleActive,
+    getProviderName,
+    isSubmitting,
+    handleDelete,
+  } = useModels();
 
   return (
     <div className="flex flex-col h-screen">
@@ -153,7 +66,7 @@ export default function ModelsPage() {
         description="Quản lý các model AI"
         actions={
           <Button onClick={() => openDialog()}>
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="h-4 w-4 mr-2" />
             Thêm Model
           </Button>
         }
@@ -213,7 +126,7 @@ export default function ModelsPage() {
                           onCheckedChange={() => toggleActive(model)}
                         />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -224,10 +137,7 @@ export default function ModelsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            if (confirm("Xác nhận xóa?"))
-                              deleteMutation.mutate(model.id);
-                          }}
+                          onClick={() => handleDelete(model.id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -255,7 +165,7 @@ export default function ModelsPage() {
               <Select
                 value={formData.provider_id.toString()}
                 onValueChange={(v) =>
-                  setFormData({ ...formData, provider_id: parseInt(v) })
+                  updateFormData({ provider_id: parseInt(v) })
                 }
               >
                 <SelectTrigger>
@@ -274,9 +184,7 @@ export default function ModelsPage() {
               <Label>Model ID</Label>
               <Input
                 value={formData.model_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, model_id: e.target.value })
-                }
+                onChange={(e) => updateFormData({ model_id: e.target.value })}
                 placeholder="gemini-2.0-flash"
               />
             </div>
@@ -285,7 +193,7 @@ export default function ModelsPage() {
               <Input
                 value={formData.display_name}
                 onChange={(e) =>
-                  setFormData({ ...formData, display_name: e.target.value })
+                  updateFormData({ display_name: e.target.value })
                 }
                 placeholder="Gemini 2.0 Flash"
               />
@@ -296,8 +204,7 @@ export default function ModelsPage() {
                 type="number"
                 value={formData.context_length}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
+                  updateFormData({
                     context_length: parseInt(e.target.value) || 0,
                   })
                 }
@@ -309,11 +216,8 @@ export default function ModelsPage() {
             <Button variant="outline" onClick={closeDialog}>
               Hủy
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {(createMutation.isPending || updateMutation.isPending) && (
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               {editingModel ? "Cập nhật" : "Tạo mới"}

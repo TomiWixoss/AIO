@@ -1,9 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Loader2, Database, Key } from "lucide-react";
-import { toast } from "sonner";
+import { Plus, Trash2, Loader2, Database, Key } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,83 +37,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { providersApi, Provider } from "@/lib/api";
-
-const PROVIDER_TYPES = [
-  { id: "google-ai", name: "Google AI" },
-  { id: "groq", name: "Groq" },
-  { id: "cerebras", name: "Cerebras" },
-  { id: "openrouter", name: "OpenRouter" },
-];
+import { useProviders } from "@/hooks";
 
 export default function ProvidersPage() {
-  const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedProviderId, setSelectedProviderId] = useState("");
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["providers"],
-    queryFn: () => providersApi.getAll(),
-  });
-
-  const providers = data?.data?.data || [];
-
-  const createMutation = useMutation({
-    mutationFn: (data: { provider_id: string }) => providersApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["providers"] });
-      toast.success("Tạo provider thành công");
-      setIsDialogOpen(false);
-      setSelectedProviderId("");
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || "Lỗi tạo provider");
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Provider> }) =>
-      providersApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["providers"] });
-      toast.success("Cập nhật thành công");
-    },
-    onError: () => toast.error("Lỗi cập nhật"),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => providersApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["providers"] });
-      toast.success("Xóa thành công");
-    },
-    onError: () => toast.error("Lỗi xóa provider"),
-  });
-
-  const handleCreate = () => {
-    if (!selectedProviderId) {
-      toast.error("Vui lòng chọn loại provider");
-      return;
-    }
-    createMutation.mutate({ provider_id: selectedProviderId });
-  };
-
-  const toggleActive = (provider: Provider) => {
-    updateMutation.mutate({
-      id: provider.id,
-      data: { is_active: !provider.is_active },
-    });
-  };
-
-  const getProviderDisplayName = (providerId: string) => {
-    return PROVIDER_TYPES.find((p) => p.id === providerId)?.name || providerId;
-  };
-
-  // Lọc ra các provider chưa được thêm
-  const existingProviderIds = providers.map((p) => p.provider_id);
-  const availableProviders = PROVIDER_TYPES.filter(
-    (p) => !existingProviderIds.includes(p.id)
-  );
+  const {
+    providers,
+    isLoading,
+    isDialogOpen,
+    setIsDialogOpen,
+    selectedProviderId,
+    setSelectedProviderId,
+    availableProviders,
+    handleCreate,
+    toggleActive,
+    getProviderDisplayName,
+    isSubmitting,
+    handleDelete,
+  } = useProviders();
 
   return (
     <div className="flex flex-col h-screen">
@@ -128,7 +65,7 @@ export default function ProvidersPage() {
             onClick={() => setIsDialogOpen(true)}
             disabled={availableProviders.length === 0}
           >
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="h-4 w-4 mr-2" />
             Thêm Provider
           </Button>
         }
@@ -197,10 +134,7 @@ export default function ProvidersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            if (confirm("Xác nhận xóa provider này?"))
-                              deleteMutation.mutate(provider.id);
-                          }}
+                          onClick={() => handleDelete(provider.id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -253,9 +187,9 @@ export default function ProvidersPage() {
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={createMutation.isPending || !selectedProviderId}
+              disabled={isSubmitting || !selectedProviderId}
             >
-              {createMutation.isPending && (
+              {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               Thêm

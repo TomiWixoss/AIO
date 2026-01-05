@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { BarChart3, Zap, MessageSquare, TrendingUp } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import {
@@ -11,71 +10,54 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { statsApi } from "@/lib/api";
+import { useStats } from "@/hooks";
+
+const getStatsCards = (stats: {
+  totalRequests: number;
+  totalTokens: number;
+  requestsToday: number;
+  tokensToday: number;
+}) => [
+  {
+    title: "Tổng yêu cầu",
+    value: stats.totalRequests.toLocaleString(),
+    description: "Tất cả thời gian",
+    icon: MessageSquare,
+    color: "text-blue-500",
+  },
+  {
+    title: "Tổng tokens",
+    value: stats.totalTokens.toLocaleString(),
+    description: "Đã sử dụng",
+    icon: Zap,
+    color: "text-yellow-500",
+  },
+  {
+    title: "Yêu cầu hôm nay",
+    value: stats.requestsToday.toLocaleString(),
+    description: "24 giờ qua",
+    icon: TrendingUp,
+    color: "text-green-500",
+  },
+  {
+    title: "Tokens hôm nay",
+    value: stats.tokensToday.toLocaleString(),
+    description: "24 giờ qua",
+    icon: BarChart3,
+    color: "text-purple-500",
+  },
+];
 
 export default function StatsPage() {
-  const { data: statsData, isLoading } = useQuery({
-    queryKey: ["stats"],
-    queryFn: () => statsApi.get(),
+  const { isLoading, totalRequests, totalTokens, requestsToday, tokensToday } =
+    useStats();
+
+  const cards = getStatsCards({
+    totalRequests,
+    totalTokens,
+    requestsToday,
+    tokensToday,
   });
-
-  const { data: todayData } = useQuery({
-    queryKey: ["stats-today"],
-    queryFn: () => statsApi.getToday(),
-  });
-
-  // Parse stats data - API trả về total_tokens là object {prompt, completion}
-  const statsRaw = statsData?.data?.data;
-  const todayRaw = todayData?.data?.data;
-
-  const totalRequests = statsRaw?.total_requests || 0;
-
-  // total_tokens có thể là object hoặc number
-  let totalTokens = 0;
-  if (statsRaw?.total_tokens) {
-    if (typeof statsRaw.total_tokens === "object") {
-      totalTokens =
-        (statsRaw.total_tokens.prompt || 0) +
-        (statsRaw.total_tokens.completion || 0);
-    } else {
-      totalTokens = statsRaw.total_tokens;
-    }
-  }
-
-  const requestsToday = todayRaw?.requests || 0;
-  const tokensToday =
-    (todayRaw?.prompt_tokens || 0) + (todayRaw?.completion_tokens || 0);
-
-  const cards = [
-    {
-      title: "Tổng yêu cầu",
-      value: totalRequests.toLocaleString(),
-      description: "Tất cả thời gian",
-      icon: MessageSquare,
-      color: "text-blue-500",
-    },
-    {
-      title: "Tổng tokens",
-      value: totalTokens.toLocaleString(),
-      description: "Đã sử dụng",
-      icon: Zap,
-      color: "text-yellow-500",
-    },
-    {
-      title: "Yêu cầu hôm nay",
-      value: requestsToday.toLocaleString(),
-      description: "24 giờ qua",
-      icon: TrendingUp,
-      color: "text-green-500",
-    },
-    {
-      title: "Tokens hôm nay",
-      value: tokensToday.toLocaleString(),
-      description: "24 giờ qua",
-      icon: BarChart3,
-      color: "text-purple-500",
-    },
-  ];
 
   return (
     <div className="flex flex-col h-screen">

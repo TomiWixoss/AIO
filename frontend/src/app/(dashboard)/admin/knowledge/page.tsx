@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Pencil,
@@ -10,7 +8,6 @@ import {
   BookOpen,
   FileText,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,86 +39,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { knowledgeApi, KnowledgeBase } from "@/lib/api";
+import { useKnowledge } from "@/hooks";
 
 export default function KnowledgePage() {
-  const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingKb, setEditingKb] = useState<KnowledgeBase | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    is_active: true,
-  });
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["knowledge-bases"],
-    queryFn: () => knowledgeApi.getAll(),
-  });
-
-  const kbs = data?.data?.data || [];
-
-  const createMutation = useMutation({
-    mutationFn: (data: Partial<KnowledgeBase>) => knowledgeApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
-      toast.success("Tạo knowledge base thành công");
-      closeDialog();
-    },
-    onError: () => toast.error("Lỗi tạo knowledge base"),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<KnowledgeBase> }) =>
-      knowledgeApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
-      toast.success("Cập nhật thành công");
-      closeDialog();
-    },
-    onError: () => toast.error("Lỗi cập nhật"),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => knowledgeApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
-      toast.success("Xóa thành công");
-    },
-    onError: () => toast.error("Lỗi xóa"),
-  });
-
-  const openDialog = (kb?: KnowledgeBase) => {
-    if (kb) {
-      setEditingKb(kb);
-      setFormData({
-        name: kb.name,
-        description: kb.description,
-        is_active: kb.is_active,
-      });
-    } else {
-      setEditingKb(null);
-      setFormData({ name: "", description: "", is_active: true });
-    }
-    setIsDialogOpen(true);
-  };
-
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingKb(null);
-  };
-
-  const handleSubmit = () => {
-    if (editingKb) {
-      updateMutation.mutate({ id: editingKb.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
-
-  const toggleActive = (kb: KnowledgeBase) => {
-    updateMutation.mutate({ id: kb.id, data: { is_active: !kb.is_active } });
-  };
+  const {
+    kbs,
+    isLoading,
+    isDialogOpen,
+    setIsDialogOpen,
+    editingKb,
+    formData,
+    updateFormData,
+    openDialog,
+    closeDialog,
+    handleSubmit,
+    toggleActive,
+    isSubmitting,
+    handleDelete,
+  } = useKnowledge();
 
   return (
     <div className="flex flex-col h-screen">
@@ -130,7 +65,7 @@ export default function KnowledgePage() {
         description="Quản lý cơ sở tri thức cho AI"
         actions={
           <Button onClick={() => openDialog()}>
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="h-4 w-4 mr-2" />
             Thêm Knowledge Base
           </Button>
         }
@@ -188,7 +123,7 @@ export default function KnowledgePage() {
                           onCheckedChange={() => toggleActive(kb)}
                         />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -199,10 +134,7 @@ export default function KnowledgePage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            if (confirm("Xác nhận xóa?"))
-                              deleteMutation.mutate(kb.id);
-                          }}
+                          onClick={() => handleDelete(kb.id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -231,9 +163,7 @@ export default function KnowledgePage() {
               <Label>Tên</Label>
               <Input
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => updateFormData({ name: e.target.value })}
                 placeholder="Tài liệu sản phẩm"
               />
             </div>
@@ -242,7 +172,7 @@ export default function KnowledgePage() {
               <Textarea
                 value={formData.description}
                 onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
+                  updateFormData({ description: e.target.value })
                 }
                 placeholder="Chứa các tài liệu hướng dẫn sử dụng sản phẩm"
               />
@@ -252,11 +182,8 @@ export default function KnowledgePage() {
             <Button variant="outline" onClick={closeDialog}>
               Hủy
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {(createMutation.isPending || updateMutation.isPending) && (
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               {editingKb ? "Cập nhật" : "Tạo mới"}

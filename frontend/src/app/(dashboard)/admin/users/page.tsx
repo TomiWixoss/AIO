@@ -1,9 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Loader2, Users } from "lucide-react";
-import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,90 +30,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { adminsApi, Admin } from "@/lib/api";
-import { useAuthStore } from "@/stores/auth";
+import { useAdmins } from "@/hooks";
 
 export default function UsersPage() {
-  const queryClient = useQueryClient();
-  const { admin: currentAdmin } = useAuthStore();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["admins"],
-    queryFn: () => adminsApi.getAll(),
-  });
-
-  const admins = data?.data?.data || [];
-
-  const createMutation = useMutation({
-    mutationFn: (data: { email: string; password: string; name: string }) =>
-      adminsApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admins"] });
-      toast.success("Tạo quản trị viên thành công");
-      closeDialog();
-    },
-    onError: () => toast.error("Lỗi tạo quản trị viên"),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: number;
-      data: { name?: string; password?: string };
-    }) => adminsApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admins"] });
-      toast.success("Cập nhật thành công");
-      closeDialog();
-    },
-    onError: () => toast.error("Lỗi cập nhật"),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => adminsApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admins"] });
-      toast.success("Xóa thành công");
-    },
-    onError: () => toast.error("Lỗi xóa"),
-  });
-
-  const openDialog = (admin?: Admin) => {
-    if (admin) {
-      setEditingAdmin(admin);
-      setFormData({ name: admin.name, email: admin.email, password: "" });
-    } else {
-      setEditingAdmin(null);
-      setFormData({ name: "", email: "", password: "" });
-    }
-    setIsDialogOpen(true);
-  };
-
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingAdmin(null);
-  };
-
-  const handleSubmit = () => {
-    if (editingAdmin) {
-      const updateData: { name?: string; password?: string } = {
-        name: formData.name,
-      };
-      if (formData.password) updateData.password = formData.password;
-      updateMutation.mutate({ id: editingAdmin.id, data: updateData });
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
+  const {
+    admins,
+    isLoading,
+    isDialogOpen,
+    setIsDialogOpen,
+    editingAdmin,
+    formData,
+    updateFormData,
+    openDialog,
+    closeDialog,
+    handleSubmit,
+    canDelete,
+    isSubmitting,
+    handleDelete,
+  } = useAdmins();
 
   return (
     <div className="flex flex-col h-screen">
@@ -125,7 +56,7 @@ export default function UsersPage() {
         description="Quản lý tài khoản quản trị"
         actions={
           <Button onClick={() => openDialog()}>
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="h-4 w-4 mr-2" />
             Thêm Admin
           </Button>
         }
@@ -172,7 +103,7 @@ export default function UsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>{admin.email}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -183,11 +114,8 @@ export default function UsersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          disabled={admin.id === currentAdmin?.id}
-                          onClick={() => {
-                            if (confirm("Xác nhận xóa?"))
-                              deleteMutation.mutate(admin.id);
-                          }}
+                          disabled={!canDelete(admin.id)}
+                          onClick={() => handleDelete(admin.id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -216,9 +144,7 @@ export default function UsersPage() {
               <Label>Họ tên</Label>
               <Input
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => updateFormData({ name: e.target.value })}
                 placeholder="Nguyễn Văn A"
               />
             </div>
@@ -228,9 +154,7 @@ export default function UsersPage() {
                 <Input
                   type="email"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
+                  onChange={(e) => updateFormData({ email: e.target.value })}
                   placeholder="admin@example.com"
                 />
               </div>
@@ -244,9 +168,7 @@ export default function UsersPage() {
               <Input
                 type="password"
                 value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
+                onChange={(e) => updateFormData({ password: e.target.value })}
                 placeholder="••••••••"
               />
             </div>
@@ -255,11 +177,8 @@ export default function UsersPage() {
             <Button variant="outline" onClick={closeDialog}>
               Hủy
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {(createMutation.isPending || updateMutation.isPending) && (
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               {editingAdmin ? "Cập nhật" : "Tạo mới"}
