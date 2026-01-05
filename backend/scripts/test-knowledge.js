@@ -4,7 +4,6 @@
  */
 
 const BACKEND_URL = "http://localhost:4000";
-const GATEWAY_URL = "http://localhost:3000";
 
 let token = null;
 let kbId = null;
@@ -293,50 +292,41 @@ async function runTests() {
   // Test AI using search_knowledge tool
   {
     try {
-      const res = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
+      const res = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          messages: [
-            {
-              role: "user",
-              content: "Tôi muốn hỏi về chính sách đổi trả sản phẩm",
-            },
-          ],
+          message: "Tôi muốn hỏi về chính sách đổi trả sản phẩm",
           model: "gemini-2.5-flash",
           provider: "google-ai",
+          session_key: "test-kb-" + Date.now(),
         }),
       });
       const data = await res.json();
 
-      if (data.success && data.data?.content) {
+      if (data.choices?.[0]?.message?.content) {
+        const content = data.choices[0].message.content;
         // Check if AI used the tool or answered directly
         const hasToolResult =
-          data.data.content.includes("[tool_result]") ||
-          data.data.metadata?.tool_executions?.length > 0;
+          content.includes("[tool_result]") || content.includes("30 ngày");
 
-        if (
-          log(
-            "AI uses search_knowledge tool",
-            hasToolResult || data.data.content.includes("30 ngày")
-          )
-        ) {
+        if (log("AI uses search_knowledge tool", hasToolResult)) {
           passed++;
           console.log(
             "   AI Response (truncated):",
-            data.data.content.substring(0, 200) + "..."
+            content.substring(0, 200) + "..."
           );
         } else {
           // AI might answer without tool if it has the info
           log("AI responds about return policy", true);
           passed++;
-          console.log(
-            "   AI Response:",
-            data.data.content.substring(0, 200) + "..."
-          );
+          console.log("   AI Response:", content.substring(0, 200) + "...");
         }
       } else {
-        log("AI search_knowledge", false, data.error?.message);
+        log("AI search_knowledge", false, data.error?.message || "No content");
         failed++;
       }
     } catch (e) {
@@ -354,6 +344,9 @@ async function runTests() {
     if (log("Delete knowledge base", status === 200)) passed++;
     else failed++;
   }
+
+  // Wait for deletion to propagate
+  await new Promise((r) => setTimeout(r, 500));
 
   // Verify deletion
   {

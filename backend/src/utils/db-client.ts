@@ -1,4 +1,5 @@
 import { config } from "../config/index.js";
+import { AppError } from "shared/errors";
 
 const BASE_URL = config.services.database;
 
@@ -13,7 +14,11 @@ export async function dbGet<T>(path: string): Promise<T> {
   const json = (await res.json()) as ApiResponse<T>;
 
   if (!res.ok || !json.success) {
-    throw new Error(json.error?.message || "Database request failed");
+    throw new AppError(
+      res.status,
+      json.error?.code || "DB_ERROR",
+      json.error?.message || "Database request failed"
+    );
   }
   return json.data as T;
 }
@@ -27,7 +32,11 @@ export async function dbPost<T>(path: string, data: object): Promise<T> {
   const json = (await res.json()) as ApiResponse<T>;
 
   if (!res.ok || !json.success) {
-    throw new Error(json.error?.message || "Database request failed");
+    throw new AppError(
+      res.status,
+      json.error?.code || "DB_ERROR",
+      json.error?.message || "Database request failed"
+    );
   }
   return json.data as T;
 }
@@ -41,7 +50,11 @@ export async function dbPut<T>(path: string, data: object): Promise<T> {
   const json = (await res.json()) as ApiResponse<T>;
 
   if (!res.ok || !json.success) {
-    throw new Error(json.error?.message || "Database request failed");
+    throw new AppError(
+      res.status,
+      json.error?.code || "DB_ERROR",
+      json.error?.message || "Database request failed"
+    );
   }
   return json.data as T;
 }
@@ -51,7 +64,11 @@ export async function dbDelete<T>(path: string): Promise<T> {
   const json = (await res.json()) as ApiResponse<T>;
 
   if (!res.ok || !json.success) {
-    throw new Error(json.error?.message || "Database request failed");
+    throw new AppError(
+      res.status,
+      json.error?.code || "DB_ERROR",
+      json.error?.message || "Database request failed"
+    );
   }
   return json.data as T;
 }
