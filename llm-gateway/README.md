@@ -4,12 +4,10 @@ Gateway tích hợp và chuẩn hóa giao diện tương tác cho các Mô hình
 
 ## Features
 
-- 🔐 **Authentication**: API key-based authentication
-- 🚦 **Rate Limiting**: Configurable request throttling
-- 💾 **Caching**: LRU cache for non-streaming responses
 - 🔄 **Retry Logic**: Automatic retry with exponential backoff
 - ✅ **Validation**: Zod schema validation for all requests
 - 📊 **Logging**: Request tracking with Winston
+- 🔀 **Multi-Provider**: 12 LLM providers với free tier
 
 ## Supported Providers (Free Tier)
 
@@ -43,28 +41,12 @@ cp .env.example .env
 npm run dev
 ```
 
-## Configuration
-
-### Environment Variables
-
-```bash
-# Gateway Configuration
-API_KEYS=key1,key2              # Comma-separated API keys (leave empty to disable auth)
-RATE_LIMIT_WINDOW_MS=60000      # Rate limit window (default: 1 minute)
-RATE_LIMIT_MAX_REQUESTS=100     # Max requests per window
-CACHE_TTL_SECONDS=300           # Cache TTL (default: 5 minutes)
-CACHE_MAX_SIZE=100              # Max cached responses
-RETRY_MAX_ATTEMPTS=3            # Max retry attempts
-RETRY_DELAY_MS=1000             # Initial retry delay
-```
-
 ## API Endpoints
 
 ### Chat Completion
 
 ```bash
 POST /v1/chat/completions
-Authorization: Bearer <api_key>
 ```
 
 Request body:
@@ -80,26 +62,18 @@ Request body:
 }
 ```
 
-Response headers:
-
-- `X-Cache`: HIT/MISS (cache status)
-- `X-RateLimit-Limit`: Max requests allowed
-- `X-RateLimit-Remaining`: Remaining requests
-- `X-RateLimit-Reset`: Reset timestamp
-
 ### List Models
 
 ```bash
 GET /v1/models                  # All models from all providers
 GET /v1/models/providers        # List available providers
 GET /v1/models/:provider        # Models from specific provider
-Authorization: Bearer <api_key>
 ```
 
 ### Health Check
 
 ```bash
-GET /health                     # No auth required
+GET /health
 ```
 
 Response:
@@ -109,8 +83,7 @@ Response:
   "status": "ok",
   "timestamp": "2025-01-05T...",
   "version": "1.0.0",
-  "providers": { "total": 12, "active": 3 },
-  "cache": { "size": 10 }
+  "providers": { "total": 12, "active": 3 }
 }
 ```
 
@@ -130,14 +103,11 @@ llm-gateway/
 │   │   ├── factory.ts        # Provider factory
 │   │   └── ...               # Provider implementations
 │   ├── middleware/
-│   │   ├── auth.ts           # API key authentication
-│   │   ├── rateLimit.ts      # Rate limiting
 │   │   ├── validation.ts     # Request validation
 │   │   ├── errorHandler.ts   # Error handling
 │   │   └── requestLogger.ts  # Request logging
 │   └── utils/
 │       ├── logger.ts         # Winston logger
-│       ├── cache.ts          # LRU cache
 │       └── retry.ts          # Retry logic
 ├── package.json
 ├── tsconfig.json
