@@ -1,45 +1,33 @@
 import { Router } from "express";
 import { ProviderFactory } from "../providers/factory.js";
 import { Provider } from "../types/index.js";
+import { ok } from "shared/response";
+import { asyncHandler } from "shared/error-handler";
 
 export const modelsRouter = Router();
 
-modelsRouter.get("/", async (_req, res, next) => {
-  try {
+modelsRouter.get(
+  "/",
+  asyncHandler(async (_req: any, res: any) => {
     const allModels = await ProviderFactory.getAllModels();
-    res.json({
-      object: "list",
-      data: allModels,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+    return ok(res, { object: "list", data: allModels });
+  })
+);
 
-modelsRouter.get("/providers", async (_req, res, next) => {
-  try {
+modelsRouter.get(
+  "/providers",
+  asyncHandler(async (_req: any, res: any) => {
     const providers = await ProviderFactory.getAvailableProviders();
-    res.json({
-      object: "list",
-      data: providers,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+    return ok(res, { object: "list", data: providers });
+  })
+);
 
-modelsRouter.get("/:provider", async (req, res, next) => {
-  try {
+modelsRouter.get(
+  "/:provider",
+  asyncHandler(async (req: any, res: any) => {
     const provider = req.params.provider as Provider;
     const providerInstance = ProviderFactory.getProviderInstance(provider);
     const models = await providerInstance.listModels();
-
-    res.json({
-      object: "list",
-      provider,
-      data: models,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+    return ok(res, { object: "list", provider, data: models });
+  })
+);

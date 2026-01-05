@@ -1,14 +1,17 @@
 import { Router } from "express";
 import { ProviderFactory } from "../providers/factory.js";
+import { ok } from "shared/response";
+import { asyncHandler } from "shared/error-handler";
 
 export const healthRouter = Router();
 
-healthRouter.get("/", async (_req, res, next) => {
-  try {
+healthRouter.get(
+  "/",
+  asyncHandler(async (_req: any, res: any) => {
     const providers = await ProviderFactory.getAvailableProviders();
     const activeProviders = providers.filter((p) => p.is_active).length;
 
-    res.json({
+    return ok(res, {
       status: "ok",
       timestamp: new Date().toISOString(),
       version: "1.0.0",
@@ -17,7 +20,5 @@ healthRouter.get("/", async (_req, res, next) => {
         active: activeProviders,
       },
     });
-  } catch (error) {
-    next(error);
-  }
-});
+  })
+);
