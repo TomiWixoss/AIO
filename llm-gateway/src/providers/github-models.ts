@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -89,18 +88,5 @@ export class GitHubModelsProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      { id: "gpt-4o", provider: this.name, name: "GPT-4o" },
-      { id: "gpt-4o-mini", provider: this.name, name: "GPT-4o Mini" },
-      {
-        id: "Meta-Llama-3.1-8B-Instruct",
-        provider: this.name,
-        name: "Llama 3.1 8B Instruct",
-      },
-      { id: "DeepSeek-R1", provider: this.name, name: "DeepSeek R1" },
-    ];
   }
 }

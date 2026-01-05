@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -92,34 +91,5 @@ export class GroqProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "llama-3.3-70b-versatile",
-        provider: this.name,
-        name: "Llama 3.3 70B Versatile",
-        context_length: 128000,
-      },
-      {
-        id: "llama-3.1-8b-instant",
-        provider: this.name,
-        name: "Llama 3.1 8B Instant",
-        context_length: 128000,
-      },
-      {
-        id: "gemma2-9b-it",
-        provider: this.name,
-        name: "Gemma 2 9B IT",
-        context_length: 8192,
-      },
-      {
-        id: "mixtral-8x7b-32768",
-        provider: this.name,
-        name: "Mixtral 8x7B",
-        context_length: 32768,
-      },
-    ];
   }
 }

@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -119,23 +118,5 @@ export class GoogleAIProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "gemini-2.0-flash",
-        provider: this.name,
-        name: "Gemini 2.0 Flash",
-        context_length: 1000000,
-      },
-      {
-        id: "gemini-1.5-flash",
-        provider: this.name,
-        name: "Gemini 1.5 Flash",
-        context_length: 1000000,
-      },
-      { id: "gemma-3-27b-it", provider: this.name, name: "Gemma 3 27B IT" },
-    ];
   }
 }

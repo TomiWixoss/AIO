@@ -26,7 +26,26 @@ import {
   markKeyError,
   decryptApiKey,
 } from "../services/key-manager.js";
+import { dbGet } from "../utils/db-client.js";
 import { logger } from "../utils/logger.js";
+
+interface DBProvider {
+  id: number;
+  name: string;
+  display_name: string;
+  base_url: string;
+  is_active: boolean;
+}
+
+interface DBModel {
+  id: number;
+  provider_id: number;
+  model_id: string;
+  display_name: string;
+  context_length: number | null;
+  is_active: boolean;
+  provider_name: string;
+}
 
 // Provider instances (stateless, no API key stored)
 const providerInstances = new Map<Provider, BaseProvider>();
@@ -146,23 +165,36 @@ export class ProviderFactory {
     return Array.from(providerInstances.keys());
   }
 
-  static getAvailableProviders(): { name: Provider; available: boolean }[] {
-    return Array.from(providerInstances.keys()).map((name) => ({
-      name,
-      available: true, // Will be checked against DB at runtime
-    }));
+  // Lấy providers từ DB
+  static async getAvailableProviders(): Promise<
+    { name: string; display_name: string; is_active: boolean }[]
+  > {
+    try {
+      const providers = await dbGet<DBProvider[]>("/providers");
+      return providers.map((p) => ({
+        name: p.name,
+        display_name: p.display_name,
+        is_active: p.is_active,
+      }));
+    } catch (error) {
+      logger.warn("Failed to get providers from DB, returning empty");
+      return [];
+    }
   }
 
+  // Lấy tất cả models từ DB
   static async getAllModels(): Promise<ModelInfo[]> {
-    const models: ModelInfo[] = [];
-    for (const provider of providerInstances.values()) {
-      try {
-        const providerModels = await provider.listModels();
-        models.push(...providerModels);
-      } catch (error) {
-        logger.warn(`Failed to get models from ${provider.name}`);
-      }
+    try {
+      const models = await dbGet<DBModel[]>("/models/active");
+      return models.map((m) => ({
+        id: m.model_id,
+        provider: m.provider_name as Provider,
+        name: m.display_name,
+        context_length: m.context_length || undefined,
+      }));
+    } catch (error) {
+      logger.warn("Failed to get models from DB, returning empty");
+      return [];
     }
-    return models;
   }
 }

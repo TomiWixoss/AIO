@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -86,22 +85,5 @@ export class CerebrasProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "llama-3.3-70b",
-        provider: this.name,
-        name: "Llama 3.3 70B",
-        context_length: 8192,
-      },
-      {
-        id: "llama-3.1-8b",
-        provider: this.name,
-        name: "Llama 3.1 8B",
-        context_length: 8192,
-      },
-    ];
   }
 }

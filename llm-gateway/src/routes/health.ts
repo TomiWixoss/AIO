@@ -3,17 +3,21 @@ import { ProviderFactory } from "../providers/factory.js";
 
 export const healthRouter = Router();
 
-healthRouter.get("/", (_req, res) => {
-  const providers = ProviderFactory.getAvailableProviders();
-  const activeProviders = providers.filter((p) => p.available).length;
+healthRouter.get("/", async (_req, res, next) => {
+  try {
+    const providers = await ProviderFactory.getAvailableProviders();
+    const activeProviders = providers.filter((p) => p.is_active).length;
 
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
-    providers: {
-      total: providers.length,
-      active: activeProviders,
-    },
-  });
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      providers: {
+        total: providers.length,
+        active: activeProviders,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 });

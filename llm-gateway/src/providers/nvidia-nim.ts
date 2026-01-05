@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -89,25 +88,5 @@ export class NvidiaNimProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "meta/llama-3.1-8b-instruct",
-        provider: this.name,
-        name: "Llama 3.1 8B Instruct",
-      },
-      {
-        id: "meta/llama-3.1-70b-instruct",
-        provider: this.name,
-        name: "Llama 3.1 70B Instruct",
-      },
-      {
-        id: "mistralai/mistral-7b-instruct-v0.3",
-        provider: this.name,
-        name: "Mistral 7B Instruct v0.3",
-      },
-    ];
   }
 }

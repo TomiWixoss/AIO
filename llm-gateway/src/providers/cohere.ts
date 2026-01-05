@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -105,28 +104,5 @@ export class CohereProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "command-r-plus",
-        provider: this.name,
-        name: "Command R+",
-        context_length: 128000,
-      },
-      {
-        id: "command-r",
-        provider: this.name,
-        name: "Command R",
-        context_length: 128000,
-      },
-      {
-        id: "command",
-        provider: this.name,
-        name: "Command",
-        context_length: 4096,
-      },
-    ];
   }
 }

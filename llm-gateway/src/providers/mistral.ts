@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -107,28 +106,5 @@ export class MistralProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "mistral-small-latest",
-        provider: this.name,
-        name: "Mistral Small",
-        context_length: 32000,
-      },
-      {
-        id: "open-mistral-7b",
-        provider: this.name,
-        name: "Mistral 7B",
-        context_length: 32000,
-      },
-      {
-        id: "open-mixtral-8x7b",
-        provider: this.name,
-        name: "Mixtral 8x7B",
-        context_length: 32000,
-      },
-    ];
   }
 }

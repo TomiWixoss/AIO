@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -89,25 +88,5 @@ export class HuggingFaceProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "meta-llama/Llama-3.2-3B-Instruct",
-        provider: this.name,
-        name: "Llama 3.2 3B Instruct",
-      },
-      {
-        id: "mistralai/Mistral-7B-Instruct-v0.3",
-        provider: this.name,
-        name: "Mistral 7B Instruct v0.3",
-      },
-      {
-        id: "google/gemma-2-9b-it",
-        provider: this.name,
-        name: "Gemma 2 9B IT",
-      },
-    ];
   }
 }

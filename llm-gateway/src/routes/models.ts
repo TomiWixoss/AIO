@@ -16,12 +16,16 @@ modelsRouter.get("/", async (_req, res, next) => {
   }
 });
 
-modelsRouter.get("/providers", (_req, res) => {
-  const providers = ProviderFactory.getAvailableProviders();
-  res.json({
-    object: "list",
-    data: providers,
-  });
+modelsRouter.get("/providers", async (_req, res, next) => {
+  try {
+    const providers = await ProviderFactory.getAvailableProviders();
+    res.json({
+      object: "list",
+      data: providers,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 modelsRouter.get("/:provider", async (req, res, next) => {

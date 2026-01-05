@@ -3,7 +3,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -141,20 +140,5 @@ export class CloudflareProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "@cf/meta/llama-3.1-8b-instruct",
-        provider: this.name,
-        name: "Llama 3.1 8B Instruct",
-      },
-      {
-        id: "@cf/mistral/mistral-7b-instruct-v0.2",
-        provider: this.name,
-        name: "Mistral 7B Instruct v0.2",
-      },
-    ];
   }
 }

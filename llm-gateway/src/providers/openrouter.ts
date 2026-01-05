@@ -4,7 +4,6 @@ import { BaseProvider } from "./base.js";
 import {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelInfo,
   Provider,
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
@@ -99,30 +98,5 @@ export class OpenRouterProvider extends BaseProvider {
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
     }
-  }
-
-  async listModels(): Promise<ModelInfo[]> {
-    return [
-      {
-        id: "meta-llama/llama-3.2-3b-instruct:free",
-        provider: this.name,
-        name: "Llama 3.2 3B Instruct (Free)",
-      },
-      {
-        id: "meta-llama/llama-3.1-8b-instruct:free",
-        provider: this.name,
-        name: "Llama 3.1 8B Instruct (Free)",
-      },
-      {
-        id: "google/gemma-2-9b-it:free",
-        provider: this.name,
-        name: "Gemma 2 9B IT (Free)",
-      },
-      {
-        id: "mistralai/mistral-7b-instruct:free",
-        provider: this.name,
-        name: "Mistral 7B Instruct (Free)",
-      },
-    ];
   }
 }
