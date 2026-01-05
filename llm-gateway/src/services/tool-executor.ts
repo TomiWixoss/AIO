@@ -1,9 +1,6 @@
-import {
-  executeCustomApiTool,
-  ToolConfig,
-  ToolResult,
-} from "../tools/custom-api.js";
-export { ToolConfig, ToolResult };
+import { executeCustomApiTool } from "../tools/custom-api.js";
+import type { ToolConfig, ToolResult } from "../tools/custom-api.js";
+export type { ToolConfig, ToolResult };
 import { dbGet } from "../utils/db-client.js";
 import { decrypt } from "../utils/encryption.js";
 import { logger } from "../utils/logger.js";
