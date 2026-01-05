@@ -21,6 +21,7 @@ export const ChatCompletionRequestSchema = z.object({
   top_p: z.number().min(0).max(1).optional(),
   stream: z.boolean().optional().default(false),
   stop: z.array(z.string()).optional(),
+  tool_ids: z.array(z.number().int().positive()).optional(), // IDs của tools từ DB
 });
 
 export type ValidatedChatRequest = z.infer<typeof ChatCompletionRequestSchema>;

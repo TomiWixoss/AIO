@@ -18,6 +18,7 @@ export interface ChatCompletionRequest {
   top_p?: number;
   stream?: boolean;
   stop?: string[];
+  tool_ids?: number[]; // IDs của tools từ DB
 }
 
 export interface ChatCompletionResponse {
