@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pool } from "../config/database.js";
+import { encrypt } from "../utils/encryption.js";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const providerKeyRoutes = Router();
@@ -49,11 +50,18 @@ providerKeyRoutes.get("/:id", async (req, res) => {
   }
 });
 
-// POST create key
+// POST create key (auto-encrypt)
 providerKeyRoutes.post("/", async (req, res) => {
   try {
-    const { provider_id, api_key_encrypted, name, priority, daily_limit } =
-      req.body;
+    const { provider_id, api_key, name, priority, daily_limit } = req.body;
+
+    if (!api_key) {
+      return res.status(400).json({ error: "api_key is required" });
+    }
+
+    // Mã hóa key trước khi lưu
+    const api_key_encrypted = encrypt(api_key);
+
     const [result] = await pool.query<ResultSetHeader>(
       "INSERT INTO provider_keys (provider_id, api_key_encrypted, name, priority, daily_limit) VALUES (?, ?, ?, ?, ?)",
       [provider_id, api_key_encrypted, name, priority ?? 0, daily_limit]
