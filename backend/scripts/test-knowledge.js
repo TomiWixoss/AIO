@@ -303,7 +303,7 @@ async function runTests() {
               content: "Tôi muốn hỏi về chính sách đổi trả sản phẩm",
             },
           ],
-          model: "gemini-2.0-flash-exp",
+          model: "gemini-2.5-flash",
           provider: "google-ai",
         }),
       });
