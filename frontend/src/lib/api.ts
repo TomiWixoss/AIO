@@ -91,9 +91,14 @@ export interface ChatMessage {
 
 export interface Stats {
   total_requests?: number;
-  total_tokens?: number;
+  total_tokens?: number | { prompt: number; completion: number };
   requests_today?: number;
   tokens_today?: number;
+  requests?: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  by_provider?: Array<{ name: string; requests: number; tokens: number }>;
+  by_status?: Array<{ status: string; count: number }>;
 }
 
 // Auth API
