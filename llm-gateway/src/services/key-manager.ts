@@ -6,7 +6,7 @@ import { config } from "../config/index.js";
 interface ProviderKey {
   id: number;
   provider_id: number;
-  api_key_encrypted: string;
+  credentials_encrypted: string;
   name: string;
   is_active: boolean;
   priority: number;
@@ -16,7 +16,7 @@ interface ProviderKey {
 
 interface Provider {
   id: number;
-  name: string;
+  provider_id: string;
   is_active: boolean;
 }
 
@@ -33,7 +33,7 @@ async function refreshCache() {
     const providers = await dbGet<Provider[]>("/providers/active");
     providerCache.clear();
     for (const p of providers) {
-      providerCache.set(p.name, p);
+      providerCache.set(p.provider_id, p);
     }
     lastCacheUpdate = now;
   } catch (error) {
@@ -53,7 +53,7 @@ export async function getActiveKey(
 ): Promise<ProviderKey | null> {
   try {
     const keys = await dbGet<ProviderKey[]>(
-      `/provider-keys/provider/${providerId}/active`
+      `/api-keys/provider/${providerId}/active`
     );
     if (keys.length === 0) return null;
 
@@ -67,7 +67,7 @@ export async function getActiveKey(
 
 export async function incrementKeyUsage(keyId: number): Promise<void> {
   try {
-    await dbPut(`/provider-keys/${keyId}/increment`, {});
+    await dbPut(`/api-keys/${keyId}/increment`, {});
   } catch (error) {
     logger.error("Failed to increment key usage", { keyId, error });
   }
@@ -79,7 +79,7 @@ export async function markKeyError(
   deactivate = false
 ): Promise<void> {
   try {
-    await dbPut(`/provider-keys/${keyId}/error`, {
+    await dbPut(`/api-keys/${keyId}/error`, {
       error_message: errorMessage,
       deactivate,
     });
@@ -88,15 +88,23 @@ export async function markKeyError(
   }
 }
 
-export async function decryptApiKey(encryptedKey: string): Promise<string> {
+export async function decryptApiKey(
+  encryptedCredentials: string
+): Promise<string> {
   try {
     // Format: iv:authTag:encrypted (hex)
-    const parts = encryptedKey.split(":");
+    const parts = encryptedCredentials.split(":");
 
     if (parts.length !== 3) {
       // Fallback: nếu không đúng format, trả về nguyên (cho dev/test)
       logger.warn("Key not encrypted, returning as-is");
-      return encryptedKey;
+      // Try to parse as JSON
+      try {
+        const creds = JSON.parse(encryptedCredentials);
+        return creds.api_key || encryptedCredentials;
+      } catch {
+        return encryptedCredentials;
+      }
     }
 
     const iv = Buffer.from(parts[0], "hex");
@@ -114,7 +122,13 @@ export async function decryptApiKey(encryptedKey: string): Promise<string> {
     let decrypted = decipher.update(encrypted, "hex", "utf8");
     decrypted += decipher.final("utf8");
 
-    return decrypted;
+    // Parse JSON credentials and return api_key
+    try {
+      const creds = JSON.parse(decrypted);
+      return creds.api_key || decrypted;
+    } catch {
+      return decrypted;
+    }
   } catch (error) {
     logger.error("Failed to decrypt API key", { error });
     throw new Error("Failed to decrypt API key");

@@ -8,7 +8,7 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 export const providerRoutes = Router();
 
 // Provider IDs được hỗ trợ trong code
-const SUPPORTED_PROVIDERS = ["openrouter", "google_ai", "groq", "cerebras"];
+const SUPPORTED_PROVIDERS = ["openrouter", "google-ai", "groq", "cerebras"];
 
 // GET /providers/supported - Danh sách provider được hỗ trợ
 providerRoutes.get(

@@ -78,7 +78,7 @@ export class ProviderFactory {
       );
     }
 
-    const apiKey = await decryptApiKey(key.api_key_encrypted);
+    const apiKey = await decryptApiKey(key.credentials_encrypted);
 
     try {
       const response = await providerInstance.chatCompletion(request, apiKey);
@@ -97,7 +97,7 @@ export class ProviderFactory {
         logger.warn(`Key ${key.id} hit rate limit, trying next key`);
         const nextKey = await getActiveKey(provider.id);
         if (nextKey && nextKey.id !== key.id) {
-          const nextApiKey = await decryptApiKey(nextKey.api_key_encrypted);
+          const nextApiKey = await decryptApiKey(nextKey.credentials_encrypted);
           const response = await providerInstance.chatCompletion(
             request,
             nextApiKey
@@ -133,7 +133,7 @@ export class ProviderFactory {
       );
     }
 
-    const apiKey = await decryptApiKey(key.api_key_encrypted);
+    const apiKey = await decryptApiKey(key.credentials_encrypted);
 
     try {
       await providerInstance.streamChatCompletion(request, res, apiKey);
