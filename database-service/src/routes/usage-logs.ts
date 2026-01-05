@@ -113,7 +113,7 @@ usageLogRoutes.post(
     const {
       session_id,
       provider_id,
-      provider_key_id,
+      api_key_id,
       model_id,
       prompt_tokens,
       completion_tokens,
@@ -126,12 +126,12 @@ usageLogRoutes.post(
     }
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO usage_logs 
-     (session_id, provider_id, provider_key_id, model_id, prompt_tokens, completion_tokens, latency_ms, status, error_message) 
+     (session_id, provider_id, api_key_id, model_id, prompt_tokens, completion_tokens, latency_ms, status, error_message) 
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         session_id,
         provider_id,
-        provider_key_id,
+        api_key_id,
         model_id,
         prompt_tokens || 0,
         completion_tokens || 0,
