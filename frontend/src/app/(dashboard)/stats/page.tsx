@@ -13,6 +13,13 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { statsApi } from "@/lib/api";
 
+interface StatsData {
+  total_requests?: number;
+  total_tokens?: number;
+  requests_today?: number;
+  tokens_today?: number;
+}
+
 export default function StatsPage() {
   const { data: statsData, isLoading } = useQuery({
     queryKey: ["stats"],
@@ -24,34 +31,34 @@ export default function StatsPage() {
     queryFn: () => statsApi.getToday(),
   });
 
-  const stats = statsData?.data?.data;
-  const today = todayData?.data?.data;
+  const stats: StatsData = statsData?.data?.data || {};
+  const today: StatsData = todayData?.data?.data || {};
 
   const cards = [
     {
       title: "Tổng yêu cầu",
-      value: stats?.total_requests || 0,
+      value: (stats.total_requests || 0).toLocaleString(),
       description: "Tất cả thời gian",
       icon: MessageSquare,
       color: "text-blue-500",
     },
     {
       title: "Tổng tokens",
-      value: stats?.total_tokens?.toLocaleString() || 0,
+      value: (stats.total_tokens || 0).toLocaleString(),
       description: "Đã sử dụng",
       icon: Zap,
       color: "text-yellow-500",
     },
     {
       title: "Yêu cầu hôm nay",
-      value: today?.requests_today || 0,
+      value: (today.requests_today || 0).toLocaleString(),
       description: "24 giờ qua",
       icon: TrendingUp,
       color: "text-green-500",
     },
     {
       title: "Tokens hôm nay",
-      value: today?.tokens_today?.toLocaleString() || 0,
+      value: (today.tokens_today || 0).toLocaleString(),
       description: "24 giờ qua",
       icon: BarChart3,
       color: "text-purple-500",

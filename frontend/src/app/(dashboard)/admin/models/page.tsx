@@ -142,7 +142,8 @@ export default function ModelsPage() {
   };
 
   const getProviderName = (providerId: number) => {
-    return providers.find((p) => p.id === providerId)?.display_name || "N/A";
+    const provider = providers.find((p) => p.id === providerId);
+    return provider?.provider_id || "N/A";
   };
 
   return (
@@ -263,7 +264,7 @@ export default function ModelsPage() {
                 <SelectContent>
                   {providers.map((p) => (
                     <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.display_name}
+                      {p.provider_id}
                     </SelectItem>
                   ))}
                 </SelectContent>

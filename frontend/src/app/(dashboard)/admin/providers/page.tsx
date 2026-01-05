@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Loader2, Database } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Database, Key } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -31,21 +31,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { providersApi, Provider } from "@/lib/api";
+
+const PROVIDER_TYPES = [
+  { id: "google-ai", name: "Google AI" },
+  { id: "groq", name: "Groq" },
+  { id: "cerebras", name: "Cerebras" },
+  { id: "openrouter", name: "OpenRouter" },
+];
 
 export default function ProvidersPage() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    display_name: "",
-    base_url: "",
-    is_active: true,
-  });
+  const [selectedProviderId, setSelectedProviderId] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["providers"],
@@ -55,13 +62,16 @@ export default function ProvidersPage() {
   const providers = data?.data?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: (data: Partial<Provider>) => providersApi.create(data),
+    mutationFn: (data: { provider_id: string }) => providersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["providers"] });
       toast.success("Tạo provider thành công");
-      closeDialog();
+      setIsDialogOpen(false);
+      setSelectedProviderId("");
     },
-    onError: () => toast.error("Lỗi tạo provider"),
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || "Lỗi tạo provider");
+    },
   });
 
   const updateMutation = useMutation({
@@ -70,7 +80,6 @@ export default function ProvidersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["providers"] });
       toast.success("Cập nhật thành công");
-      closeDialog();
     },
     onError: () => toast.error("Lỗi cập nhật"),
   });
@@ -84,38 +93,12 @@ export default function ProvidersPage() {
     onError: () => toast.error("Lỗi xóa provider"),
   });
 
-  const openDialog = (provider?: Provider) => {
-    if (provider) {
-      setEditingProvider(provider);
-      setFormData({
-        name: provider.name,
-        display_name: provider.display_name,
-        base_url: provider.base_url,
-        is_active: provider.is_active,
-      });
-    } else {
-      setEditingProvider(null);
-      setFormData({
-        name: "",
-        display_name: "",
-        base_url: "",
-        is_active: true,
-      });
+  const handleCreate = () => {
+    if (!selectedProviderId) {
+      toast.error("Vui lòng chọn loại provider");
+      return;
     }
-    setIsDialogOpen(true);
-  };
-
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingProvider(null);
-  };
-
-  const handleSubmit = () => {
-    if (editingProvider) {
-      updateMutation.mutate({ id: editingProvider.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
+    createMutation.mutate({ provider_id: selectedProviderId });
   };
 
   const toggleActive = (provider: Provider) => {
@@ -125,13 +108,26 @@ export default function ProvidersPage() {
     });
   };
 
+  const getProviderDisplayName = (providerId: string) => {
+    return PROVIDER_TYPES.find((p) => p.id === providerId)?.name || providerId;
+  };
+
+  // Lọc ra các provider chưa được thêm
+  const existingProviderIds = providers.map((p) => p.provider_id);
+  const availableProviders = PROVIDER_TYPES.filter(
+    (p) => !existingProviderIds.includes(p.id)
+  );
+
   return (
     <div className="flex flex-col h-screen">
       <Header
         title="Providers"
         description="Quản lý các nhà cung cấp LLM"
         actions={
-          <Button onClick={() => openDialog()}>
+          <Button
+            onClick={() => setIsDialogOpen(true)}
+            disabled={availableProviders.length === 0}
+          >
             <Plus className="h-4 w-4 mr-1" />
             Thêm Provider
           </Button>
@@ -156,13 +152,17 @@ export default function ProvidersPage() {
                   <Skeleton key={i} className="h-12 w-full" />
                 ))}
               </div>
+            ) : providers.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                Chưa có provider nào. Nhấn &quot;Thêm Provider&quot; để bắt đầu.
+              </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tên</TableHead>
-                    <TableHead>Tên hiển thị</TableHead>
-                    <TableHead>Base URL</TableHead>
+                    <TableHead>Provider</TableHead>
+                    <TableHead>API Keys</TableHead>
+                    <TableHead>Độ ưu tiên</TableHead>
                     <TableHead>Trạng thái</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
@@ -170,13 +170,23 @@ export default function ProvidersPage() {
                 <TableBody>
                   {providers.map((provider) => (
                     <TableRow key={provider.id}>
-                      <TableCell className="font-medium">
-                        {provider.name}
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {provider.provider_id}
+                          </Badge>
+                          <span className="font-medium">
+                            {getProviderDisplayName(provider.provider_id)}
+                          </span>
+                        </div>
                       </TableCell>
-                      <TableCell>{provider.display_name}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {provider.base_url}
+                      <TableCell>
+                        <Badge variant="secondary">
+                          <Key className="h-3 w-3 mr-1" />
+                          {provider.active_keys_count || 0} keys
+                        </Badge>
                       </TableCell>
+                      <TableCell>{provider.priority || 0}</TableCell>
                       <TableCell>
                         <Switch
                           checked={provider.is_active}
@@ -187,15 +197,8 @@ export default function ProvidersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => openDialog(provider)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
                           onClick={() => {
-                            if (confirm("Xác nhận xóa?"))
+                            if (confirm("Xác nhận xóa provider này?"))
                               deleteMutation.mutate(provider.id);
                           }}
                         >
@@ -214,57 +217,48 @@ export default function ProvidersPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingProvider ? "Sửa Provider" : "Thêm Provider"}
-            </DialogTitle>
+            <DialogTitle>Thêm Provider</DialogTitle>
             <DialogDescription>
-              Nhập thông tin nhà cung cấp LLM
+              Chọn nhà cung cấp LLM để thêm vào hệ thống
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Tên (ID)</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="google-ai"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tên hiển thị</Label>
-              <Input
-                value={formData.display_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, display_name: e.target.value })
-                }
-                placeholder="Google AI"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Base URL</Label>
-              <Input
-                value={formData.base_url}
-                onChange={(e) =>
-                  setFormData({ ...formData, base_url: e.target.value })
-                }
-                placeholder="https://api.example.com"
-              />
+              <Label>Loại Provider</Label>
+              <Select
+                value={selectedProviderId}
+                onValueChange={setSelectedProviderId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableProviders.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name} ({type.id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {availableProviders.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Tất cả providers đã được thêm
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Hủy
             </Button>
             <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
+              onClick={handleCreate}
+              disabled={createMutation.isPending || !selectedProviderId}
             >
-              {(createMutation.isPending || updateMutation.isPending) && (
+              {createMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              {editingProvider ? "Cập nhật" : "Tạo mới"}
+              Thêm
             </Button>
           </DialogFooter>
         </DialogContent>

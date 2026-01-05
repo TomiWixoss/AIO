@@ -40,7 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
@@ -49,6 +48,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { apiKeysApi, providersApi, ApiKey } from "@/lib/api";
+
+const PROVIDER_NAMES: Record<string, string> = {
+  "google-ai": "Google AI",
+  groq: "Groq",
+  cerebras: "Cerebras",
+  openrouter: "OpenRouter",
+};
 
 export default function ApiKeysPage() {
   const queryClient = useQueryClient();
@@ -157,7 +163,7 @@ export default function ApiKeysPage() {
             <SelectContent>
               {providers.map((p) => (
                 <SelectItem key={p.id} value={p.id.toString()}>
-                  {p.display_name}
+                  {PROVIDER_NAMES[p.provider_id] || p.provider_id}
                 </SelectItem>
               ))}
             </SelectContent>

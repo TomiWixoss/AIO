@@ -27,10 +27,13 @@ export interface Admin {
 
 export interface Provider {
   id: number;
-  name: string;
-  display_name: string;
-  base_url: string;
+  provider_id: string; // Đây là tên provider (google-ai, groq, etc.)
+  name?: string; // Alias cho provider_id
+  display_name?: string;
+  base_url?: string;
   is_active: boolean;
+  priority?: number;
+  active_keys_count?: number;
 }
 
 export interface Model {
@@ -87,10 +90,10 @@ export interface ChatMessage {
 }
 
 export interface Stats {
-  total_requests: number;
-  total_tokens: number;
-  requests_today: number;
-  tokens_today: number;
+  total_requests?: number;
+  total_tokens?: number;
+  requests_today?: number;
+  tokens_today?: number;
 }
 
 // Auth API

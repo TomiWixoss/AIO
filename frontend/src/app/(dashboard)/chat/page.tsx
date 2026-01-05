@@ -2,15 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Send,
-  Loader2,
-  Plus,
-  StopCircle,
-  Bot,
-  User,
-  Sparkles,
-} from "lucide-react";
+import { Send, Plus, StopCircle, Bot, User, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { toast } from "sonner";
@@ -26,9 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { modelsApi, chatApi, ChatMessage, ChatSession } from "@/lib/api";
+import { modelsApi, chatApi, ChatMessage } from "@/lib/api";
 import { useChatStore } from "@/stores/chat";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +26,6 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sessionKey, setSessionKey] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     currentSession,
@@ -44,7 +33,6 @@ export default function ChatPage() {
     isStreaming,
     setIsStreaming,
     streamContent,
-    setStreamContent,
     appendStreamContent,
     clearStreamContent,
     selectedProvider,
@@ -54,7 +42,7 @@ export default function ChatPage() {
     addMessage,
   } = useChatStore();
 
-  const { data: modelsData, isLoading: modelsLoading } = useQuery({
+  const { data: modelsData } = useQuery({
     queryKey: ["models"],
     queryFn: () => modelsApi.getAll(),
   });
@@ -62,10 +50,30 @@ export default function ChatPage() {
   const models = modelsData?.data?.data || [];
   const providers = [
     ...new Set(models.map((m) => m.provider_name).filter(Boolean)),
-  ];
+  ] as string[];
   const filteredModels = models.filter(
     (m) => m.provider_name === selectedProvider && m.is_active
   );
+
+  // Set default provider/model
+  useEffect(() => {
+    if (
+      providers.length > 0 &&
+      (!selectedProvider || !providers.includes(selectedProvider))
+    ) {
+      setSelectedProvider(providers[0]);
+    }
+  }, [providers, selectedProvider, setSelectedProvider]);
+
+  useEffect(() => {
+    if (
+      filteredModels.length > 0 &&
+      (!selectedModel ||
+        !filteredModels.find((m) => m.model_id === selectedModel))
+    ) {
+      setSelectedModel(filteredModels[0].model_id);
+    }
+  }, [filteredModels, selectedModel, setSelectedModel]);
 
   // Auto scroll
   useEffect(() => {
@@ -74,34 +82,21 @@ export default function ChatPage() {
     }
   }, [currentSession?.messages, streamContent]);
 
-  // Load session
-  const loadSession = async (key: string) => {
-    try {
-      const res = await chatApi.getSession(key);
-      setCurrentSession(res.data.data);
-      setSessionKey(key);
-    } catch {
-      toast.error("Không thể tải phiên chat");
-    }
-  };
-
-  // New chat
   const newChat = () => {
     setCurrentSession(null);
     setSessionKey(null);
     clearStreamContent();
   };
 
-  // Send message
   const sendMessage = async () => {
-    if (!input.trim() || isStreaming) return;
+    if (!input.trim() || isStreaming || !selectedProvider || !selectedModel)
+      return;
 
     const userMessage = input.trim();
     setInput("");
     setIsStreaming(true);
     clearStreamContent();
 
-    // Add user message to UI
     const tempUserMsg: ChatMessage = {
       id: Date.now(),
       role: "user",
@@ -160,12 +155,9 @@ export default function ChatPage() {
 
             try {
               const parsed = JSON.parse(data);
-
-              // Get session_key from first chunk
               if (parsed.session_key && !sessionKey) {
                 setSessionKey(parsed.session_key);
               }
-
               const content = parsed.choices?.[0]?.delta?.content;
               if (content) {
                 fullContent += content;
@@ -176,7 +168,6 @@ export default function ChatPage() {
         }
       }
 
-      // Add assistant message
       if (fullContent) {
         const assistantMsg: ChatMessage = {
           id: Date.now() + 1,
@@ -186,15 +177,16 @@ export default function ChatPage() {
         };
         addMessage(assistantMsg);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Lỗi gửi tin nhắn");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Lỗi gửi tin nhắn";
+      toast.error(message);
     } finally {
       setIsStreaming(false);
       clearStreamContent();
     }
   };
 
-  // Cancel stream
   const cancelStream = async () => {
     if (sessionKey) {
       try {
@@ -205,7 +197,6 @@ export default function ChatPage() {
     setIsStreaming(false);
   };
 
-  // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -235,7 +226,7 @@ export default function ChatPage() {
             </SelectTrigger>
             <SelectContent>
               {providers.map((p) => (
-                <SelectItem key={p} value={p!}>
+                <SelectItem key={p} value={p}>
                   {p}
                 </SelectItem>
               ))}
@@ -301,7 +292,6 @@ export default function ChatPage() {
               </div>
             ))}
 
-            {/* Streaming content */}
             {streamContent && (
               <div className="flex gap-3 justify-start">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -334,7 +324,6 @@ export default function ChatPage() {
         {/* Input */}
         <div className="flex gap-2 mt-4">
           <Textarea
-            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
