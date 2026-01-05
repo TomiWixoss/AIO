@@ -9,17 +9,6 @@ const envSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
 
-  // API Authentication
-  API_KEYS: z.string().optional(), // Comma-separated API keys
-
-  // Rate Limiting
-  RATE_LIMIT_WINDOW_MS: z.string().default("60000"), // 1 minute
-  RATE_LIMIT_MAX_REQUESTS: z.string().default("100"),
-
-  // Cache
-  CACHE_TTL_SECONDS: z.string().default("300"), // 5 minutes
-  CACHE_MAX_SIZE: z.string().default("100"),
-
   // Retry
   RETRY_MAX_ATTEMPTS: z.string().default("3"),
   RETRY_DELAY_MS: z.string().default("1000"),
@@ -56,24 +45,6 @@ const env = parsed.data;
 export const config = {
   port: parseInt(env.PORT),
   nodeEnv: env.NODE_ENV,
-
-  auth: {
-    apiKeys:
-      env.API_KEYS?.split(",")
-        .map((k) => k.trim())
-        .filter(Boolean) || [],
-    enabled: !!env.API_KEYS,
-  },
-
-  rateLimit: {
-    windowMs: parseInt(env.RATE_LIMIT_WINDOW_MS),
-    maxRequests: parseInt(env.RATE_LIMIT_MAX_REQUESTS),
-  },
-
-  cache: {
-    ttlSeconds: parseInt(env.CACHE_TTL_SECONDS),
-    maxSize: parseInt(env.CACHE_MAX_SIZE),
-  },
 
   retry: {
     maxAttempts: parseInt(env.RETRY_MAX_ATTEMPTS),

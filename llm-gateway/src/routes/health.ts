@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { responseCache } from "../utils/cache.js";
 import { ProviderFactory } from "../providers/factory.js";
 
 export const healthRouter = Router();
@@ -15,9 +14,6 @@ healthRouter.get("/", (_req, res) => {
     providers: {
       total: providers.length,
       active: activeProviders,
-    },
-    cache: {
-      size: responseCache.size,
     },
   });
 });

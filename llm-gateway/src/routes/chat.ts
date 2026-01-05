@@ -4,7 +4,6 @@ import { ChatCompletionRequest } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { validateBody } from "../middleware/validation.js";
 import { ChatCompletionRequestSchema } from "../config/validation.js";
-import { responseCache } from "../utils/cache.js";
 import { withRetry } from "../utils/retry.js";
 
 export const chatRouter = Router();
@@ -30,22 +29,7 @@ chatRouter.post(
 
         await withRetry(() => provider.streamChatCompletion(body, res));
       } else {
-        // Check cache first
-        const cached = responseCache.get(body);
-        if (cached) {
-          logger.info("Cache hit", {
-            provider: body.provider,
-            model: body.model,
-          });
-          res.setHeader("X-Cache", "HIT");
-          return res.json(cached);
-        }
-
         const response = await withRetry(() => provider.chatCompletion(body));
-
-        // Store in cache
-        responseCache.set(body, response);
-        res.setHeader("X-Cache", "MISS");
         res.json(response);
       }
     } catch (error) {
