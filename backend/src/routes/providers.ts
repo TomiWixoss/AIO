@@ -27,11 +27,31 @@ providerRoutes.get("/:id", async (req, res) => {
   }
 });
 
+// POST create provider
+providerRoutes.post("/", async (req, res) => {
+  try {
+    const result = await dbPost("/providers", req.body);
+    res.status(201).json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // PUT update provider
 providerRoutes.put("/:id", async (req, res) => {
   try {
     await dbPut(`/providers/${req.params.id}`, req.body);
     res.json({ message: "Updated" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE provider
+providerRoutes.delete("/:id", async (req, res) => {
+  try {
+    await dbDelete(`/providers/${req.params.id}`);
+    res.json({ message: "Deleted" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

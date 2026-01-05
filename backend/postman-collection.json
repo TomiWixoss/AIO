@@ -1,0 +1,358 @@
+{
+  "info": {
+    "name": "LLM Gateway - Backend API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register (First Admin)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@localhost\",\n  \"password\": \"admin123\",\n  \"name\": \"Admin\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@localhost\",\n  \"password\": \"admin123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admins",
+      "item": [
+        {
+          "name": "Get All Admins",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admins",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Get Admin by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admins/1",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Create Admin",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/admins",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin2@localhost\",\n  \"password\": \"admin123\",\n  \"name\": \"Admin 2\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Admin",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/admins/1",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Admin\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Admin",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/admins/2",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Providers",
+      "item": [
+        {
+          "name": "Get All Providers",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/providers",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Get Provider by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/providers/1",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Create Provider - OpenRouter",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/providers",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"openrouter\",\n  \"display_name\": \"OpenRouter\",\n  \"base_url\": \"https://openrouter.ai/api/v1\",\n  \"priority\": 100,\n  \"free_tier_info\": \"30+ free models\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Provider - Google AI",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/providers",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"google-ai\",\n  \"display_name\": \"Google AI Studio\",\n  \"base_url\": \"https://generativelanguage.googleapis.com\",\n  \"priority\": 90,\n  \"free_tier_info\": \"1,500 req/day\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Provider",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/providers/1",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"OpenRouter Updated\",\n  \"is_active\": true,\n  \"priority\": 100\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Provider",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/providers/1",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Provider Keys",
+      "item": [
+        {
+          "name": "Get Keys by Provider",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/provider-keys/provider/1",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Create Key - Google AI",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/provider-keys",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_id\": 2,\n  \"api_key\": \"AIzaSyDSl3ipTnBOASJzZdlPqbLsKQCGtPAmppo\",\n  \"name\": \"Google AI Key 1\",\n  \"priority\": 100,\n  \"daily_limit\": 1500\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Key",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/provider-keys/1",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Key\",\n  \"is_active\": true,\n  \"priority\": 90,\n  \"daily_limit\": 2000\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Key",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/provider-keys/1",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Models",
+      "item": [
+        {
+          "name": "Get All Models",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/models",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Get Models by Provider",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/models/provider/1",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Create Model - Gemini 2.0 Flash",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/models",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_id\": 2,\n  \"model_id\": \"gemini-2.0-flash\",\n  \"display_name\": \"Gemini 2.0 Flash\",\n  \"context_length\": 1000000,\n  \"is_fallback\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Model",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/models/1",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"Updated Model\",\n  \"is_active\": true,\n  \"is_fallback\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Model",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/models/1",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/chat",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google-ai\",\n  \"model\": \"gemini-2.0-flash\",\n  \"message\": \"Hello!\",\n  \"session_key\": \"test-session-1\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Sessions",
+          "request": { "method": "GET", "url": "{{baseUrl}}/chat/sessions" }
+        },
+        {
+          "name": "Get Session by Key",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/chat/sessions/test-session-1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stats",
+      "item": [
+        {
+          "name": "Get Overall Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/stats",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Get Today Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/stats/today",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Get Usage Logs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/stats/logs?limit=50",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    }
+  ]
+}

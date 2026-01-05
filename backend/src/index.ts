@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { config } from "./config/index.js";
 import { authRoutes } from "./routes/auth.js";
+import { adminRoutes } from "./routes/admins.js";
 import { providerRoutes } from "./routes/providers.js";
 import { providerKeyRoutes } from "./routes/provider-keys.js";
 import { modelRoutes } from "./routes/models.js";
@@ -15,6 +16,7 @@ app.use(express.json());
 
 // Routes
 app.use("/auth", authRoutes);
+app.use("/admins", adminRoutes);
 app.use("/providers", providerRoutes);
 app.use("/provider-keys", providerKeyRoutes);
 app.use("/models", modelRoutes);
