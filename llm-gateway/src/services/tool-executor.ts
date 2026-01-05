@@ -124,6 +124,20 @@ export async function loadToolConfigs(
 
   const configs: ToolConfig[] = [];
 
+  // Helper to safely parse JSON or return as-is if already object
+  const safeJsonParse = (value: any): any => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "object") return value; // Already parsed
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
   for (const toolId of toolIds) {
     try {
       const tool = await dbGet<ToolRow>(`/tools/${toolId}`);
@@ -148,19 +162,11 @@ export async function loadToolConfigs(
         description: tool.description,
         endpoint_url: tool.endpoint_url,
         http_method: tool.http_method,
-        headers_template: tool.headers_template
-          ? JSON.parse(tool.headers_template)
-          : null,
-        body_template: tool.body_template
-          ? JSON.parse(tool.body_template)
-          : null,
-        query_params_template: tool.query_params_template
-          ? JSON.parse(tool.query_params_template)
-          : null,
-        parameters: JSON.parse(tool.parameters),
-        response_mapping: tool.response_mapping
-          ? JSON.parse(tool.response_mapping)
-          : null,
+        headers_template: safeJsonParse(tool.headers_template),
+        body_template: safeJsonParse(tool.body_template),
+        query_params_template: safeJsonParse(tool.query_params_template),
+        parameters: safeJsonParse(tool.parameters) || {},
+        response_mapping: safeJsonParse(tool.response_mapping),
         credentials,
       });
     } catch (error: any) {
