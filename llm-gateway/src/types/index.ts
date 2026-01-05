@@ -2,19 +2,7 @@
 // UNIFIED REQUEST/RESPONSE TYPES
 // ============================================
 
-export type Provider =
-  | "openrouter"
-  | "google-ai"
-  | "nvidia-nim"
-  | "mistral"
-  | "codestral"
-  | "huggingface"
-  | "groq"
-  | "cerebras"
-  | "cohere"
-  | "github-models"
-  | "cloudflare"
-  | "vertex-ai";
+export type Provider = "openrouter" | "google-ai" | "groq" | "cerebras";
 
 export interface Message {
   role: "system" | "user" | "assistant";

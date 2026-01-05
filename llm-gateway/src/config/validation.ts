@@ -8,16 +8,8 @@ export const MessageSchema = z.object({
 export const ProviderSchema = z.enum([
   "openrouter",
   "google-ai",
-  "nvidia-nim",
-  "mistral",
-  "codestral",
-  "huggingface",
   "groq",
   "cerebras",
-  "cohere",
-  "github-models",
-  "cloudflare",
-  "vertex-ai",
 ]);
 
 export const ChatCompletionRequestSchema = z.object({
