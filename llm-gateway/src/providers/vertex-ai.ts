@@ -13,8 +13,6 @@ import { v4 as uuidv4 } from "uuid";
 export class VertexAIProvider extends BaseProvider {
   readonly name: Provider = "vertex-ai";
   private client: GoogleGenAI;
-  private projectId: string;
-  private location: string;
 
   constructor() {
     super();
@@ -24,9 +22,6 @@ export class VertexAIProvider extends BaseProvider {
     if (!projectId) {
       throw new Error("GOOGLE_VERTEX_PROJECT_ID is required");
     }
-
-    this.projectId = projectId;
-    this.location = location;
 
     // Use Vertex AI endpoint
     this.client = new GoogleGenAI({
