@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AppError } from "./errors.js";
+import { AppError, GatewayError } from "./errors.js";
 
 interface ErrorResponse {
   success: false;
@@ -12,7 +12,7 @@ interface ErrorResponse {
 }
 
 export const errorHandler = (
-  err: Error | AppError,
+  err: Error | AppError | GatewayError,
   _req: Request,
   res: Response,
   _next: NextFunction
@@ -25,6 +25,17 @@ export const errorHandler = (
   let code = "INTERNAL_SERVER_ERROR";
   let message = "Internal server error";
   let details: any = undefined;
+
+  // Handle GatewayError (LLM provider errors)
+  if (err instanceof GatewayError) {
+    return res.status(err.statusCode).json({
+      error: {
+        message: err.message,
+        provider: err.provider,
+        type: "gateway_error",
+      },
+    });
+  }
 
   // Handle AppError
   if (err instanceof AppError) {

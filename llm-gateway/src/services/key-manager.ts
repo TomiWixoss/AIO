@@ -1,7 +1,6 @@
-import crypto from "crypto";
 import { dbGet, dbPut } from "../utils/db-client.js";
+import { decryptApiKey as decryptKey } from "../utils/encryption.js";
 import { logger } from "../utils/logger.js";
-import { config } from "../config/index.js";
 
 interface ProviderKey {
   id: number;
@@ -92,43 +91,7 @@ export async function decryptApiKey(
   encryptedCredentials: string
 ): Promise<string> {
   try {
-    // Format: iv:authTag:encrypted (hex)
-    const parts = encryptedCredentials.split(":");
-
-    if (parts.length !== 3) {
-      // Fallback: nếu không đúng format, trả về nguyên (cho dev/test)
-      logger.warn("Key not encrypted, returning as-is");
-      // Try to parse as JSON
-      try {
-        const creds = JSON.parse(encryptedCredentials);
-        return creds.api_key || encryptedCredentials;
-      } catch {
-        return encryptedCredentials;
-      }
-    }
-
-    const iv = Buffer.from(parts[0], "hex");
-    const authTag = Buffer.from(parts[1], "hex");
-    const encrypted = parts[2];
-
-    const decipher = crypto.createDecipheriv(
-      "aes-256-gcm",
-      Buffer.from(config.encryptionKey, "utf8"),
-      iv
-    );
-
-    decipher.setAuthTag(authTag);
-
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-
-    // Parse JSON credentials and return api_key
-    try {
-      const creds = JSON.parse(decrypted);
-      return creds.api_key || decrypted;
-    } catch {
-      return decrypted;
-    }
+    return decryptKey(encryptedCredentials);
   } catch (error) {
     logger.error("Failed to decrypt API key", { error });
     throw new Error("Failed to decrypt API key");

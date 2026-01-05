@@ -10,7 +10,7 @@ import { OpenRouterProvider } from "./openrouter.js";
 import { GroqProvider } from "./groq.js";
 import { CerebrasProvider } from "./cerebras.js";
 import { GoogleAIProvider } from "./google-ai.js";
-import { GatewayError } from "../middleware/errorHandler.js";
+import { GatewayError } from "shared/errors";
 import {
   getProviderByName,
   getActiveKey,

@@ -6,7 +6,7 @@ import {
   knowledgeSearchToolDefinition,
 } from "../tools/knowledge-search.js";
 import { dbGet } from "../utils/db-client.js";
-import { decrypt } from "../utils/encryption.js";
+import { decryptApiKey } from "../utils/encryption.js";
 import { logger } from "../utils/logger.js";
 
 // Built-in tools
@@ -197,7 +197,13 @@ export async function loadToolConfigs(
           `/api-keys/tool/${toolId}/active`
         );
         if (keys.length > 0) {
-          credentials = JSON.parse(decrypt(keys[0].credentials_encrypted));
+          const decrypted = decryptApiKey(keys[0].credentials_encrypted);
+          // Try to parse as JSON, otherwise use as api_key
+          try {
+            credentials = JSON.parse(decrypted);
+          } catch {
+            credentials = { api_key: decrypted };
+          }
         }
       } catch (e) {
         // Tool có thể không cần API key

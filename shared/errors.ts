@@ -20,6 +20,18 @@ export class AppError extends Error {
   }
 }
 
+// Gateway-specific error (for LLM providers)
+export class GatewayError extends Error {
+  constructor(
+    public statusCode: number,
+    public message: string,
+    public provider?: string
+  ) {
+    super(message);
+    this.name = "GatewayError";
+  }
+}
+
 // Error factory functions
 export const BadRequest = (message: string, details?: any) =>
   new AppError(400, "BAD_REQUEST", message, details);

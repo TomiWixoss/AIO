@@ -6,7 +6,7 @@ import {
   ChatCompletionResponse,
   Provider,
 } from "../types/index.js";
-import { GatewayError } from "../middleware/errorHandler.js";
+import { GatewayError } from "shared/errors";
 import { v4 as uuidv4 } from "uuid";
 
 export class CerebrasProvider extends BaseProvider {

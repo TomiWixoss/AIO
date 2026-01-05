@@ -1,5 +1,5 @@
 import { dbGet } from "../utils/db-client.js";
-import { decrypt } from "../utils/encryption.js";
+import { decryptApiKey } from "../utils/encryption.js";
 
 interface ProviderKey {
   id: number;
@@ -35,7 +35,7 @@ export async function getGeminiApiKey(): Promise<string> {
   }
 
   // Decrypt and cache
-  cachedApiKey = decrypt(keys[0].credentials_encrypted);
+  cachedApiKey = decryptApiKey(keys[0].credentials_encrypted);
   cacheExpiry = now + CACHE_TTL;
 
   return cachedApiKey;
