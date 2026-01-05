@@ -18,6 +18,19 @@ adminRoutes.get(
   })
 );
 
+// GET admin by email (for login) - MUST be before /:id
+adminRoutes.get(
+  "/email/:email",
+  asyncHandler(async (req: any, res: any) => {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT * FROM admins WHERE email = ?",
+      [req.params.email]
+    );
+    if (rows.length === 0) throw NotFound("Admin");
+    return ok(res, rows[0]);
+  })
+);
+
 // GET admin by id
 adminRoutes.get(
   "/:id",
@@ -25,19 +38,6 @@ adminRoutes.get(
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT id, email, name, created_at FROM admins WHERE id = ?",
       [req.params.id]
-    );
-    if (rows.length === 0) throw NotFound("Admin");
-    return ok(res, rows[0]);
-  })
-);
-
-// GET admin by email (for login)
-adminRoutes.get(
-  "/email/:email",
-  asyncHandler(async (req: any, res: any) => {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT * FROM admins WHERE email = ?",
-      [req.params.email]
     );
     if (rows.length === 0) throw NotFound("Admin");
     return ok(res, rows[0]);
