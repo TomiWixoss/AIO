@@ -20,50 +20,92 @@ interface Model {
   model_id: string;
 }
 
+interface DBMessage {
+  id: number;
+  role: string;
+  content: string;
+}
+
 // POST /chat - Main chat endpoint (no auth for web chatbot)
 chatRoutes.post("/", async (req, res) => {
   try {
-    const { session_key, provider, model, messages, temperature, max_tokens } =
-      req.body;
+    const {
+      session_key,
+      provider,
+      model,
+      message,
+      messages: clientMessages,
+      system_prompt,
+      temperature,
+      max_tokens,
+    } = req.body;
 
-    if (!provider || !model || !messages) {
+    // Hỗ trợ cả 2 format: message (single) hoặc messages (array)
+    const userMessage =
+      message || clientMessages?.[clientMessages.length - 1]?.content;
+
+    if (!provider || !model || !userMessage) {
       return res
         .status(400)
-        .json({ error: "provider, model, messages required" });
+        .json({ error: "provider, model, message required" });
     }
 
     // Get or create session
     let session: Session | null = null;
+    let historyMessages: { role: string; content: string }[] = [];
+
     if (session_key) {
       session = await dbGet<Session>(`/chat-sessions/key/${session_key}`).catch(
         () => null
       );
+
+      // Load history từ DB nếu có session
+      if (session) {
+        const dbMessages = await dbGet<DBMessage[]>(
+          `/chat-messages/session/${session.id}`
+        ).catch(() => []);
+        historyMessages = dbMessages.map((m) => ({
+          role: m.role as "user" | "assistant" | "system",
+          content: m.content,
+        }));
+      }
     }
 
     if (!session) {
       const newKey = session_key || crypto.randomUUID();
       const created = await dbPost<{ id: number }>("/chat-sessions", {
         session_key: newKey,
-        title: messages[0]?.content?.slice(0, 50) || "New Chat",
+        title: userMessage.slice(0, 50) || "New Chat",
       });
       session = { id: created.id, session_key: newKey, title: "" };
     }
 
-    // Save user message
-    const userMsg = messages[messages.length - 1];
-    if (userMsg?.role === "user") {
-      await dbPost("/chat-messages", {
-        session_id: session.id,
-        role: "user",
-        content: userMsg.content,
-      });
+    // Save user message to DB
+    await dbPost("/chat-messages", {
+      session_id: session.id,
+      role: "user",
+      content: userMessage,
+    });
+
+    // Build messages array for LLM
+    const llmMessages: { role: string; content: string }[] = [];
+
+    // 1. System prompt (nếu có)
+    if (system_prompt) {
+      llmMessages.push({ role: "system", content: system_prompt });
     }
 
-    // Call LLM Gateway
+    // 2. History từ DB
+    llmMessages.push(...historyMessages);
+
+    // 3. User message mới
+    llmMessages.push({ role: "user", content: userMessage });
+
+    // Call LLM Gateway với full history
     const response = await chatCompletion({
       provider,
       model,
-      messages,
+      messages: llmMessages,
       temperature,
       max_tokens,
     });
