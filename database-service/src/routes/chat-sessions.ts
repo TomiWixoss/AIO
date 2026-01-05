@@ -20,7 +20,7 @@ chatSessionRoutes.get(
 
 // GET session by id
 chatSessionRoutes.get(
-  "/:id(\\d+)",
+  "/:id",
   asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM chat_sessions WHERE id = ?",

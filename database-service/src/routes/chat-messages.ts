@@ -26,7 +26,7 @@ chatMessageRoutes.get(
 
 // GET message by id
 chatMessageRoutes.get(
-  "/:id(\\d+)",
+  "/:id",
   asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM chat_messages WHERE id = ?",
@@ -78,7 +78,7 @@ chatMessageRoutes.post(
 
 // DELETE message
 chatMessageRoutes.delete(
-  "/:id(\\d+)",
+  "/:id",
   asyncHandler(async (req: any, res: any) => {
     const [result] = await pool.query<ResultSetHeader>(
       "DELETE FROM chat_messages WHERE id = ?",

@@ -21,7 +21,7 @@ modelRoutes.get(
   })
 );
 
-// GET active models
+// GET active models (must be before /:id)
 modelRoutes.get(
   "/active",
   asyncHandler(async (_req: any, res: any) => {
@@ -35,19 +35,7 @@ modelRoutes.get(
   })
 );
 
-// GET models by provider
-modelRoutes.get(
-  "/provider/:providerId",
-  asyncHandler(async (req: any, res: any) => {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT * FROM models WHERE provider_id = ? ORDER BY display_name",
-      [req.params.providerId]
-    );
-    return ok(res, rows);
-  })
-);
-
-// GET fallback models
+// GET fallback models (must be before /:id)
 modelRoutes.get(
   "/fallback",
   asyncHandler(async (_req: any, res: any) => {
@@ -61,26 +49,38 @@ modelRoutes.get(
   })
 );
 
-// GET model by id
+// GET models by provider (must be before /:id)
 modelRoutes.get(
-  "/:id(\\d+)",
+  "/provider/:providerId",
   asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT * FROM models WHERE id = ?",
-      [req.params.id]
+      "SELECT * FROM models WHERE provider_id = ? ORDER BY display_name",
+      [req.params.providerId]
     );
-    if (rows.length === 0) throw NotFound("Model");
-    return ok(res, rows[0]);
+    return ok(res, rows);
   })
 );
 
-// GET model by provider and model_id
+// GET model by provider and model_id (must be before /:id)
 modelRoutes.get(
   "/provider/:providerId/model/:modelId",
   asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM models WHERE provider_id = ? AND model_id = ?",
       [req.params.providerId, decodeURIComponent(req.params.modelId)]
+    );
+    if (rows.length === 0) throw NotFound("Model");
+    return ok(res, rows[0]);
+  })
+);
+
+// GET model by id
+modelRoutes.get(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT * FROM models WHERE id = ?",
+      [req.params.id]
     );
     if (rows.length === 0) throw NotFound("Model");
     return ok(res, rows[0]);
