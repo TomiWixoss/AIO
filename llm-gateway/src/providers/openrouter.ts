@@ -1,4 +1,4 @@
-import { OpenRouter } from "@openrouter/sdk";
+import OpenAI from "openai";
 import { Response } from "express";
 import { BaseProvider } from "./base.js";
 import {
@@ -8,28 +8,16 @@ import {
 } from "../types/index.js";
 import { GatewayError } from "../middleware/errorHandler.js";
 import { v4 as uuidv4 } from "uuid";
+import { logger } from "../utils/logger.js";
 
 export class OpenRouterProvider extends BaseProvider {
   readonly name: Provider = "openrouter";
 
-  private createClient(apiKey: string): OpenRouter {
-    return new OpenRouter({ apiKey });
-  }
-
-  // Convert messages sang format OpenRouter SDK
-  private buildInput(messages: ChatCompletionRequest["messages"]) {
-    // Lọc bỏ system messages (sẽ dùng instructions)
-    return messages
-      .filter((m) => m.role !== "system")
-      .map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
-  }
-
-  // Lấy system instruction từ messages
-  private getInstructions(messages: ChatCompletionRequest["messages"]) {
-    return messages.find((m) => m.role === "system")?.content;
+  private createClient(apiKey: string): OpenAI {
+    return new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey,
+    });
   }
 
   async chatCompletion(
@@ -38,44 +26,41 @@ export class OpenRouterProvider extends BaseProvider {
   ): Promise<ChatCompletionResponse> {
     try {
       const client = this.createClient(apiKey);
-      const input = this.buildInput(request.messages);
-      const instructions = this.getInstructions(request.messages);
 
-      // SDK mới dùng callModel
-      const result = client.callModel({
+      logger.info("OpenRouter request:", {
         model: request.model,
-        input,
-        instructions,
-        temperature: request.temperature,
-        maxOutputTokens: request.max_tokens,
-        topP: request.top_p,
+        messages: request.messages,
       });
 
-      const response = await result.getResponse();
-      const text = await result.getText();
+      const completion = await client.chat.completions.create({
+        model: request.model,
+        messages: request.messages.map((m) => ({
+          role: m.role as "system" | "user" | "assistant",
+          content: m.content,
+        })),
+        temperature: request.temperature,
+        max_tokens: request.max_tokens,
+        top_p: request.top_p,
+      });
 
       return {
-        id: uuidv4(),
+        id: completion.id || uuidv4(),
         provider: this.name,
         model: request.model,
-        choices: [
-          {
-            index: 0,
-            message: {
-              role: "assistant" as const,
-              content: text || "",
-            },
-            finish_reason: "stop",
+        choices: completion.choices.map((choice) => ({
+          index: choice.index,
+          message: {
+            role: "assistant" as const,
+            content: choice.message.content || "",
           },
-        ],
+          finish_reason: choice.finish_reason || "stop",
+        })),
         usage: {
-          prompt_tokens: response.usage?.inputTokens || 0,
-          completion_tokens: response.usage?.outputTokens || 0,
-          total_tokens:
-            (response.usage?.inputTokens || 0) +
-            (response.usage?.outputTokens || 0),
+          prompt_tokens: completion.usage?.prompt_tokens || 0,
+          completion_tokens: completion.usage?.completion_tokens || 0,
+          total_tokens: completion.usage?.total_tokens || 0,
         },
-        created: Date.now(),
+        created: completion.created || Date.now(),
       };
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
@@ -89,36 +74,36 @@ export class OpenRouterProvider extends BaseProvider {
   ): Promise<void> {
     try {
       const client = this.createClient(apiKey);
-      const input = this.buildInput(request.messages);
-      const instructions = this.getInstructions(request.messages);
 
-      const result = client.callModel({
+      const stream = await client.chat.completions.create({
         model: request.model,
-        input,
-        instructions,
+        messages: request.messages.map((m) => ({
+          role: m.role as "system" | "user" | "assistant",
+          content: m.content,
+        })),
         temperature: request.temperature,
-        maxOutputTokens: request.max_tokens,
-        topP: request.top_p,
+        max_tokens: request.max_tokens,
+        top_p: request.top_p,
+        stream: true,
       });
 
-      const id = uuidv4();
-
-      // Dùng getTextStream() để stream
-      for await (const delta of result.getTextStream()) {
-        this.sendStreamChunk(res, {
-          id,
-          provider: this.name,
-          model: request.model,
-          choices: [
-            {
-              index: 0,
-              delta: {
-                content: delta || "",
+      for await (const chunk of stream) {
+        if (chunk.choices[0]?.delta?.content) {
+          this.sendStreamChunk(res, {
+            id: chunk.id,
+            provider: this.name,
+            model: request.model,
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  content: chunk.choices[0].delta.content,
+                },
+                finish_reason: chunk.choices[0].finish_reason,
               },
-              finish_reason: null,
-            },
-          ],
-        });
+            ],
+          });
+        }
       }
       this.sendStreamEnd(res);
     } catch (error: any) {
