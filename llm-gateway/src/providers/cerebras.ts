@@ -12,26 +12,18 @@ import { v4 as uuidv4 } from "uuid";
 
 export class CerebrasProvider extends BaseProvider {
   readonly name: Provider = "cerebras";
-  private client: OpenAI;
 
-  constructor() {
-    super();
-    const apiKey = process.env.CEREBRAS_API_KEY;
-    if (!apiKey) {
-      throw new Error("CEREBRAS_API_KEY is required");
-    }
-    // Cerebras uses OpenAI-compatible API
-    this.client = new OpenAI({
-      baseURL: "https://api.cerebras.ai/v1",
-      apiKey,
-    });
+  private createClient(apiKey: string): OpenAI {
+    return new OpenAI({ baseURL: "https://api.cerebras.ai/v1", apiKey });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const response = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -46,10 +38,7 @@ export class CerebrasProvider extends BaseProvider {
         model: request.model,
         choices: response.choices.map((choice, index) => ({
           index,
-          message: {
-            role: "assistant",
-            content: choice.message.content || "",
-          },
+          message: { role: "assistant", content: choice.message.content || "" },
           finish_reason: choice.finish_reason || "stop",
         })),
         usage: {
@@ -66,10 +55,12 @@ export class CerebrasProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const stream = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const stream = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -86,10 +77,7 @@ export class CerebrasProvider extends BaseProvider {
           model: request.model,
           choices: chunk.choices.map((choice, index) => ({
             index,
-            delta: {
-              role: choice.delta.role,
-              content: choice.delta.content,
-            },
+            delta: { role: choice.delta.role, content: choice.delta.content },
             finish_reason: choice.finish_reason,
           })),
         });

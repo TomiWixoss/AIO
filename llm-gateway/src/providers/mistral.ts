@@ -12,22 +12,18 @@ import { v4 as uuidv4 } from "uuid";
 
 export class MistralProvider extends BaseProvider {
   readonly name: Provider = "mistral";
-  private client: Mistral;
 
-  constructor() {
-    super();
-    const apiKey = process.env.MISTRAL_API_KEY;
-    if (!apiKey) {
-      throw new Error("MISTRAL_API_KEY is required");
-    }
-    this.client = new Mistral({ apiKey });
+  private createClient(apiKey: string): Mistral {
+    return new Mistral({ apiKey });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await this.client.chat.complete({
+      const client = this.createClient(apiKey);
+      const response = await client.chat.complete({
         model: request.model,
         messages: request.messages.map((m) => ({
           role: m.role,
@@ -72,10 +68,12 @@ export class MistralProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const stream = await this.client.chat.stream({
+      const client = this.createClient(apiKey);
+      const stream = await client.chat.stream({
         model: request.model,
         messages: request.messages.map((m) => ({
           role: m.role,
@@ -120,12 +118,6 @@ export class MistralProvider extends BaseProvider {
         context_length: 32000,
       },
       {
-        id: "mistral-medium-latest",
-        provider: this.name,
-        name: "Mistral Medium",
-        context_length: 32000,
-      },
-      {
         id: "open-mistral-7b",
         provider: this.name,
         name: "Mistral 7B",
@@ -136,12 +128,6 @@ export class MistralProvider extends BaseProvider {
         provider: this.name,
         name: "Mixtral 8x7B",
         context_length: 32000,
-      },
-      {
-        id: "pixtral-12b-2409",
-        provider: this.name,
-        name: "Pixtral 12B",
-        context_length: 128000,
       },
     ];
   }

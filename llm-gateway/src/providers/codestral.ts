@@ -12,26 +12,18 @@ import { v4 as uuidv4 } from "uuid";
 
 export class CodestralProvider extends BaseProvider {
   readonly name: Provider = "codestral";
-  private client: Mistral;
 
-  constructor() {
-    super();
-    const apiKey =
-      process.env.MISTRAL_CODESTRAL_API_KEY || process.env.MISTRAL_API_KEY;
-    if (!apiKey) {
-      throw new Error("MISTRAL_CODESTRAL_API_KEY is required");
-    }
-    this.client = new Mistral({
-      apiKey,
-      serverURL: "https://codestral.mistral.ai",
-    });
+  private createClient(apiKey: string): Mistral {
+    return new Mistral({ apiKey, serverURL: "https://codestral.mistral.ai" });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await this.client.chat.complete({
+      const client = this.createClient(apiKey);
+      const response = await client.chat.complete({
         model: request.model || "codestral-latest",
         messages: request.messages.map((m) => ({
           role: m.role,
@@ -76,10 +68,12 @@ export class CodestralProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const stream = await this.client.chat.stream({
+      const client = this.createClient(apiKey);
+      const stream = await client.chat.stream({
         model: request.model || "codestral-latest",
         messages: request.messages.map((m) => ({
           role: m.role,
@@ -121,12 +115,6 @@ export class CodestralProvider extends BaseProvider {
         id: "codestral-latest",
         provider: this.name,
         name: "Codestral Latest",
-        context_length: 256000,
-      },
-      {
-        id: "codestral-2501",
-        provider: this.name,
-        name: "Codestral 2501",
         context_length: 256000,
       },
     ];

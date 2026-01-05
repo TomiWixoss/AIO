@@ -12,26 +12,21 @@ import { v4 as uuidv4 } from "uuid";
 
 export class GitHubModelsProvider extends BaseProvider {
   readonly name: Provider = "github-models";
-  private client: OpenAI;
 
-  constructor() {
-    super();
-    const token = process.env.GITHUB_MODELS_TOKEN;
-    if (!token) {
-      throw new Error("GITHUB_MODELS_TOKEN is required");
-    }
-    // GitHub Models uses Azure AI Inference API (OpenAI-compatible)
-    this.client = new OpenAI({
+  private createClient(apiKey: string): OpenAI {
+    return new OpenAI({
       baseURL: "https://models.inference.ai.azure.com",
-      apiKey: token,
+      apiKey,
     });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const response = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -46,10 +41,7 @@ export class GitHubModelsProvider extends BaseProvider {
         model: request.model,
         choices: response.choices.map((choice, index) => ({
           index,
-          message: {
-            role: "assistant",
-            content: choice.message.content || "",
-          },
+          message: { role: "assistant", content: choice.message.content || "" },
           finish_reason: choice.finish_reason || "stop",
         })),
         usage: {
@@ -66,10 +58,12 @@ export class GitHubModelsProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const stream = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const stream = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -86,10 +80,7 @@ export class GitHubModelsProvider extends BaseProvider {
           model: request.model,
           choices: chunk.choices.map((choice, index) => ({
             index,
-            delta: {
-              role: choice.delta.role,
-              content: choice.delta.content,
-            },
+            delta: { role: choice.delta.role, content: choice.delta.content },
             finish_reason: choice.finish_reason,
           })),
         });
@@ -108,16 +99,6 @@ export class GitHubModelsProvider extends BaseProvider {
         id: "Meta-Llama-3.1-8B-Instruct",
         provider: this.name,
         name: "Llama 3.1 8B Instruct",
-      },
-      {
-        id: "Meta-Llama-3.1-70B-Instruct",
-        provider: this.name,
-        name: "Llama 3.1 70B Instruct",
-      },
-      {
-        id: "Phi-3.5-mini-instruct",
-        provider: this.name,
-        name: "Phi 3.5 Mini Instruct",
       },
       { id: "DeepSeek-R1", provider: this.name, name: "DeepSeek R1" },
     ];

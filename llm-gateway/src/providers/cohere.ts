@@ -12,22 +12,18 @@ import { v4 as uuidv4 } from "uuid";
 
 export class CohereProvider extends BaseProvider {
   readonly name: Provider = "cohere";
-  private client: CohereClientV2;
 
-  constructor() {
-    super();
-    const apiKey = process.env.COHERE_API_KEY;
-    if (!apiKey) {
-      throw new Error("COHERE_API_KEY is required");
-    }
-    this.client = new CohereClientV2({ token: apiKey });
+  private createClient(apiKey: string): CohereClientV2 {
+    return new CohereClientV2({ token: apiKey });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await this.client.chat({
+      const client = this.createClient(apiKey);
+      const response = await client.chat({
         model: request.model,
         messages: request.messages.map((m) => ({
           role: m.role,
@@ -52,10 +48,7 @@ export class CohereProvider extends BaseProvider {
         choices: [
           {
             index: 0,
-            message: {
-              role: "assistant",
-              content: text,
-            },
+            message: { role: "assistant", content: text },
             finish_reason: response.finishReason || "stop",
           },
         ],
@@ -75,10 +68,12 @@ export class CohereProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const stream = await this.client.chatStream({
+      const client = this.createClient(apiKey);
+      const stream = await client.chatStream({
         model: request.model,
         messages: request.messages.map((m) => ({
           role: m.role,
@@ -99,9 +94,7 @@ export class CohereProvider extends BaseProvider {
             choices: [
               {
                 index: 0,
-                delta: {
-                  content: event.delta?.message?.content?.text || "",
-                },
+                delta: { content: event.delta?.message?.content?.text || "" },
                 finish_reason: null,
               },
             ],
@@ -132,12 +125,6 @@ export class CohereProvider extends BaseProvider {
         id: "command",
         provider: this.name,
         name: "Command",
-        context_length: 4096,
-      },
-      {
-        id: "command-light",
-        provider: this.name,
-        name: "Command Light",
         context_length: 4096,
       },
     ];

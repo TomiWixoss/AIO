@@ -12,22 +12,17 @@ import { v4 as uuidv4 } from "uuid";
 
 export class GoogleAIProvider extends BaseProvider {
   readonly name: Provider = "google-ai";
-  private client: GoogleGenAI;
 
-  constructor() {
-    super();
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GOOGLE_AI_API_KEY is required");
-    }
-    this.client = new GoogleGenAI({ apiKey });
+  private createClient(apiKey: string): GoogleGenAI {
+    return new GoogleGenAI({ apiKey });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      // Convert messages to Gemini format
+      const client = this.createClient(apiKey);
       const contents = request.messages
         .filter((m) => m.role !== "system")
         .map((m) => ({
@@ -39,7 +34,7 @@ export class GoogleAIProvider extends BaseProvider {
         (m) => m.role === "system"
       )?.content;
 
-      const response = await this.client.models.generateContent({
+      const response = await client.models.generateContent({
         model: request.model,
         contents,
         config: {
@@ -78,9 +73,11 @@ export class GoogleAIProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
+      const client = this.createClient(apiKey);
       const contents = request.messages
         .filter((m) => m.role !== "system")
         .map((m) => ({
@@ -92,7 +89,7 @@ export class GoogleAIProvider extends BaseProvider {
         (m) => m.role === "system"
       )?.content;
 
-      const stream = await this.client.models.generateContentStream({
+      const stream = await client.models.generateContentStream({
         model: request.model,
         contents,
         config: {
@@ -126,18 +123,6 @@ export class GoogleAIProvider extends BaseProvider {
 
   async listModels(): Promise<ModelInfo[]> {
     return [
-      {
-        id: "gemini-2.5-flash",
-        provider: this.name,
-        name: "Gemini 2.5 Flash",
-        context_length: 1000000,
-      },
-      {
-        id: "gemini-2.5-flash-lite",
-        provider: this.name,
-        name: "Gemini 2.5 Flash Lite",
-        context_length: 1000000,
-      },
       {
         id: "gemini-2.0-flash",
         provider: this.name,

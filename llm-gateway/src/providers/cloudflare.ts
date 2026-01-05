@@ -11,34 +11,33 @@ import { v4 as uuidv4 } from "uuid";
 
 export class CloudflareProvider extends BaseProvider {
   readonly name: Provider = "cloudflare";
-  private accountId: string;
-  private apiToken: string;
 
-  constructor() {
-    super();
-    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-    const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+  // Cloudflare needs accountId + apiToken, stored as "accountId:apiToken"
+  private parseKey(apiKey: string): { accountId: string; apiToken: string } {
+    const [accountId, apiToken] = apiKey.split(":");
     if (!accountId || !apiToken) {
-      throw new Error(
-        "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN are required"
+      throw new GatewayError(
+        400,
+        "Invalid Cloudflare key format. Expected accountId:apiToken"
       );
     }
-    this.accountId = accountId;
-    this.apiToken = apiToken;
+    return { accountId, apiToken };
   }
 
-  private getBaseUrl(model: string): string {
-    return `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai/run/${model}`;
+  private getBaseUrl(accountId: string, model: string): string {
+    return `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await fetch(this.getBaseUrl(request.model), {
+      const { accountId, apiToken } = this.parseKey(apiKey);
+      const response = await fetch(this.getBaseUrl(accountId, request.model), {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${this.apiToken}`,
+          Authorization: `Bearer ${apiToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -69,11 +68,7 @@ export class CloudflareProvider extends BaseProvider {
             finish_reason: "stop",
           },
         ],
-        usage: {
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0,
-        },
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
         created: Date.now(),
       };
     } catch (error: any) {
@@ -83,13 +78,15 @@ export class CloudflareProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const response = await fetch(this.getBaseUrl(request.model), {
+      const { accountId, apiToken } = this.parseKey(apiKey);
+      const response = await fetch(this.getBaseUrl(accountId, request.model), {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${this.apiToken}`,
+          Authorization: `Bearer ${apiToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -154,24 +151,9 @@ export class CloudflareProvider extends BaseProvider {
         name: "Llama 3.1 8B Instruct",
       },
       {
-        id: "@cf/meta/llama-3.2-3b-instruct",
-        provider: this.name,
-        name: "Llama 3.2 3B Instruct",
-      },
-      {
         id: "@cf/mistral/mistral-7b-instruct-v0.2",
         provider: this.name,
         name: "Mistral 7B Instruct v0.2",
-      },
-      {
-        id: "@cf/google/gemma-7b-it",
-        provider: this.name,
-        name: "Gemma 7B IT",
-      },
-      {
-        id: "@cf/qwen/qwen1.5-14b-chat-awq",
-        provider: this.name,
-        name: "Qwen 1.5 14B Chat",
       },
     ];
   }

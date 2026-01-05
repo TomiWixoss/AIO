@@ -12,26 +12,21 @@ import { v4 as uuidv4 } from "uuid";
 
 export class NvidiaNimProvider extends BaseProvider {
   readonly name: Provider = "nvidia-nim";
-  private client: OpenAI;
 
-  constructor() {
-    super();
-    const apiKey = process.env.NVIDIA_NIM_API_KEY;
-    if (!apiKey) {
-      throw new Error("NVIDIA_NIM_API_KEY is required");
-    }
-    // NVIDIA NIM uses OpenAI-compatible API
-    this.client = new OpenAI({
+  private createClient(apiKey: string): OpenAI {
+    return new OpenAI({
       baseURL: "https://integrate.api.nvidia.com/v1",
       apiKey,
     });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const response = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -46,10 +41,7 @@ export class NvidiaNimProvider extends BaseProvider {
         model: request.model,
         choices: response.choices.map((choice, index) => ({
           index,
-          message: {
-            role: "assistant",
-            content: choice.message.content || "",
-          },
+          message: { role: "assistant", content: choice.message.content || "" },
           finish_reason: choice.finish_reason || "stop",
         })),
         usage: {
@@ -66,10 +58,12 @@ export class NvidiaNimProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const stream = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const stream = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -86,10 +80,7 @@ export class NvidiaNimProvider extends BaseProvider {
           model: request.model,
           choices: chunk.choices.map((choice, index) => ({
             index,
-            delta: {
-              role: choice.delta.role,
-              content: choice.delta.content,
-            },
+            delta: { role: choice.delta.role, content: choice.delta.content },
             finish_reason: choice.finish_reason,
           })),
         });
@@ -116,16 +107,6 @@ export class NvidiaNimProvider extends BaseProvider {
         id: "mistralai/mistral-7b-instruct-v0.3",
         provider: this.name,
         name: "Mistral 7B Instruct v0.3",
-      },
-      {
-        id: "google/gemma-2-9b-it",
-        provider: this.name,
-        name: "Gemma 2 9B IT",
-      },
-      {
-        id: "nvidia/llama-3.1-nemotron-70b-instruct",
-        provider: this.name,
-        name: "Nemotron 70B Instruct",
       },
     ];
   }

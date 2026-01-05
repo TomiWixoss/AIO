@@ -12,29 +12,30 @@ import { v4 as uuidv4 } from "uuid";
 
 export class VertexAIProvider extends BaseProvider {
   readonly name: Provider = "vertex-ai";
-  private client: GoogleGenAI;
 
-  constructor() {
-    super();
-    const projectId = process.env.GOOGLE_VERTEX_PROJECT_ID;
-    const location = process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
-
+  // Key format: "projectId:location" (uses Application Default Credentials)
+  private parseKey(apiKey: string): { projectId: string; location: string } {
+    const [projectId, location = "us-central1"] = apiKey.split(":");
     if (!projectId) {
-      throw new Error("GOOGLE_VERTEX_PROJECT_ID is required");
+      throw new GatewayError(
+        400,
+        "Invalid Vertex AI key format. Expected projectId:location"
+      );
     }
+    return { projectId, location };
+  }
 
-    // Use Vertex AI endpoint
-    this.client = new GoogleGenAI({
-      vertexai: true,
-      project: projectId,
-      location: location,
-    });
+  private createClient(apiKey: string): GoogleGenAI {
+    const { projectId, location } = this.parseKey(apiKey);
+    return new GoogleGenAI({ vertexai: true, project: projectId, location });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
+      const client = this.createClient(apiKey);
       const contents = request.messages
         .filter((m) => m.role !== "system")
         .map((m) => ({
@@ -46,7 +47,7 @@ export class VertexAIProvider extends BaseProvider {
         (m) => m.role === "system"
       )?.content;
 
-      const response = await this.client.models.generateContent({
+      const response = await client.models.generateContent({
         model: request.model,
         contents,
         config: {
@@ -85,9 +86,11 @@ export class VertexAIProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
+      const client = this.createClient(apiKey);
       const contents = request.messages
         .filter((m) => m.role !== "system")
         .map((m) => ({
@@ -99,7 +102,7 @@ export class VertexAIProvider extends BaseProvider {
         (m) => m.role === "system"
       )?.content;
 
-      const stream = await this.client.models.generateContentStream({
+      const stream = await client.models.generateContentStream({
         model: request.model,
         contents,
         config: {
@@ -133,18 +136,6 @@ export class VertexAIProvider extends BaseProvider {
 
   async listModels(): Promise<ModelInfo[]> {
     return [
-      {
-        id: "gemini-2.5-flash",
-        provider: this.name,
-        name: "Gemini 2.5 Flash",
-        context_length: 1000000,
-      },
-      {
-        id: "gemini-2.5-pro",
-        provider: this.name,
-        name: "Gemini 2.5 Pro",
-        context_length: 1000000,
-      },
       {
         id: "gemini-2.0-flash",
         provider: this.name,
