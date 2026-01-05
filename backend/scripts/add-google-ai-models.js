@@ -10,7 +10,7 @@ const googleModels = [
   {
     model_id: "gemini-2.5-flash-lite",
     display_name: "Gemini 2.5 Flash Lite",
-    context_length: 1048576, // 1M tokens
+    context_length: 1048576,
   },
   {
     model_id: "gemini-2.5-flash",
@@ -53,10 +53,7 @@ async function getToken() {
   const response = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: "admin@localhost",
-      password: "admin123",
-    }),
+    body: JSON.stringify({ email: "admin@localhost", password: "admin123" }),
   });
   const data = await response.json();
   return data.data.token;
@@ -71,9 +68,7 @@ async function createProvider(token) {
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      name: "google-ai",
-      display_name: "Google AI",
-      base_url: "https://generativelanguage.googleapis.com/v1beta",
+      provider_id: "google_ai",
       is_active: true,
       priority: 2,
     }),
@@ -94,8 +89,8 @@ async function getProviderId(token) {
     headers: { Authorization: `Bearer ${token}` },
   });
   const data = await response.json();
-  const googleAi = data.data.find((p) => p.name === "google-ai");
-  return googleAi?.id;
+  const provider = data.data.find((p) => p.provider_id === "google_ai");
+  return provider?.id;
 }
 
 async function addModel(token, providerId, model) {
@@ -136,13 +131,10 @@ async function main() {
   console.log("🚀 Adding Google AI Models...\n");
 
   try {
-    // Get token
     console.log("🔑 Logging in...");
     const token = await getToken();
 
-    // Check if provider exists, if not create it
     let providerId = await getProviderId(token);
-
     if (!providerId) {
       providerId = await createProvider(token);
     } else {
@@ -151,22 +143,16 @@ async function main() {
 
     console.log(`📦 Adding ${googleModels.length} models...\n`);
 
-    let added = 0;
-    let failed = 0;
-
+    let added = 0,
+      failed = 0;
     for (const model of googleModels) {
       const success = await addModel(token, providerId, model);
-      if (success) {
-        added++;
-      } else {
-        failed++;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      success ? added++ : failed++;
+      await new Promise((r) => setTimeout(r, 100));
     }
 
     console.log("\n" + "=".repeat(60));
     console.log(`✅ Summary: ${added} added, ${failed} failed`);
-    console.log("=".repeat(60));
   } catch (error) {
     console.error("❌ Fatal error:", error.message);
     process.exit(1);

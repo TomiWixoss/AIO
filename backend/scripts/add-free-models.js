@@ -173,10 +173,7 @@ async function getToken() {
   const response = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: "admin@localhost",
-      password: "admin123",
-    }),
+    body: JSON.stringify({ email: "admin@localhost", password: "admin123" }),
   });
   const data = await response.json();
   return data.data.token;
@@ -187,8 +184,8 @@ async function getProviderId(token) {
     headers: { Authorization: `Bearer ${token}` },
   });
   const data = await response.json();
-  const openrouter = data.data.find((p) => p.name === "openrouter");
-  return openrouter?.id;
+  const provider = data.data.find((p) => p.provider_id === "openrouter");
+  return provider?.id;
 }
 
 async function addModel(token, providerId, model) {
@@ -228,39 +225,30 @@ async function addModel(token, providerId, model) {
 async function main() {
   console.log("🚀 Adding OpenRouter Free Models...\n");
 
-  // Get token
   console.log("🔑 Logging in...");
   const token = await getToken();
 
-  // Get OpenRouter provider ID
   console.log("📡 Getting OpenRouter provider...");
   const providerId = await getProviderId(token);
 
   if (!providerId) {
-    console.error("❌ OpenRouter provider not found!");
+    console.error("❌ OpenRouter provider not found! Run setup.js first.");
     process.exit(1);
   }
 
   console.log(`✓ OpenRouter provider ID: ${providerId}\n`);
   console.log(`📦 Adding ${freeModels.length} models...\n`);
 
-  let added = 0;
-  let failed = 0;
-
+  let added = 0,
+    failed = 0;
   for (const model of freeModels) {
     const success = await addModel(token, providerId, model);
-    if (success) {
-      added++;
-    } else {
-      failed++;
-    }
-    // Small delay to avoid rate limiting
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    success ? added++ : failed++;
+    await new Promise((r) => setTimeout(r, 100));
   }
 
   console.log("\n" + "=".repeat(60));
   console.log(`✅ Summary: ${added} added, ${failed} failed`);
-  console.log("=".repeat(60));
 }
 
 main().catch((error) => {

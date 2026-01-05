@@ -83,10 +83,7 @@ async function getToken() {
   const response = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: "admin@localhost",
-      password: "admin123",
-    }),
+    body: JSON.stringify({ email: "admin@localhost", password: "admin123" }),
   });
   const data = await response.json();
   return data.data.token;
@@ -101,9 +98,7 @@ async function createProvider(token) {
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      name: "groq",
-      display_name: "Groq",
-      base_url: "https://api.groq.com/openai/v1",
+      provider_id: "groq",
       is_active: true,
       priority: 3,
     }),
@@ -124,8 +119,8 @@ async function getProviderId(token) {
     headers: { Authorization: `Bearer ${token}` },
   });
   const data = await response.json();
-  const groq = data.data.find((p) => p.name === "groq");
-  return groq?.id;
+  const provider = data.data.find((p) => p.provider_id === "groq");
+  return provider?.id;
 }
 
 async function addModel(token, providerId, model) {
@@ -166,13 +161,10 @@ async function main() {
   console.log("🚀 Adding Groq Models...\n");
 
   try {
-    // Get token
     console.log("🔑 Logging in...");
     const token = await getToken();
 
-    // Check if provider exists, if not create it
     let providerId = await getProviderId(token);
-
     if (!providerId) {
       providerId = await createProvider(token);
     } else {
@@ -181,22 +173,16 @@ async function main() {
 
     console.log(`📦 Adding ${groqModels.length} models...\n`);
 
-    let added = 0;
-    let failed = 0;
-
+    let added = 0,
+      failed = 0;
     for (const model of groqModels) {
       const success = await addModel(token, providerId, model);
-      if (success) {
-        added++;
-      } else {
-        failed++;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      success ? added++ : failed++;
+      await new Promise((r) => setTimeout(r, 100));
     }
 
     console.log("\n" + "=".repeat(60));
     console.log(`✅ Summary: ${added} added, ${failed} failed`);
-    console.log("=".repeat(60));
   } catch (error) {
     console.error("❌ Fatal error:", error.message);
     process.exit(1);

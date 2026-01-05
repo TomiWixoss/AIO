@@ -37,9 +37,7 @@ async function createProvider(token) {
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      name: "openrouter",
-      display_name: "OpenRouter",
-      base_url: "https://openrouter.ai/api/v1",
+      provider_id: "openrouter",
       is_active: true,
       priority: 1,
     }),
@@ -52,6 +50,7 @@ async function createProvider(token) {
 
   const data = await response.json();
   console.log(`✓ OpenRouter provider created (ID: ${data.data.id})`);
+  return data.data.id;
 }
 
 async function main() {
@@ -61,6 +60,10 @@ async function main() {
     const token = await createAdmin();
     await createProvider(token);
     console.log("\n✅ Setup completed!");
+    console.log("\n💡 Next: Add API key with:");
+    console.log(
+      '   POST /api-keys/provider { "provider_id": 1, "api_key": "sk-or-xxx", "name": "OpenRouter Key" }'
+    );
   } catch (error) {
     console.error("\n❌ Error:", error.message);
     process.exit(1);
