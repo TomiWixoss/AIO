@@ -1,0 +1,116 @@
+-- LLM Gateway Database Schema
+-- 7 Tables
+
+CREATE DATABASE IF NOT EXISTS llm_gateway;
+USE llm_gateway;
+
+-- 1. admins - Tài khoản quản trị
+CREATE TABLE admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. providers - 12 nhà cung cấp LLM
+CREATE TABLE providers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    display_name VARCHAR(100) NOT NULL,
+    base_url VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    priority INT DEFAULT 0,
+    free_tier_info TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. provider_keys - API Keys của providers (rotate)
+CREATE TABLE provider_keys (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    provider_id INT NOT NULL,
+    api_key_encrypted TEXT NOT NULL,
+    name VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    priority INT DEFAULT 0,
+    requests_today INT DEFAULT 0,
+    daily_limit INT,
+    last_used_at DATETIME,
+    last_error_at DATETIME,
+    last_error_message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+);
+
+-- 4. models - Models của providers
+CREATE TABLE models (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    provider_id INT NOT NULL,
+    model_id VARCHAR(100) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    context_length INT,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_fallback BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_provider_model (provider_id, model_id)
+);
+
+-- 5. chat_sessions - Phiên chat
+CREATE TABLE chat_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_key VARCHAR(100) NOT NULL UNIQUE,
+    title VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 6. chat_messages - Tin nhắn trong phiên
+CREATE TABLE chat_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id INT NOT NULL,
+    role ENUM('system', 'user', 'assistant') NOT NULL,
+    content TEXT NOT NULL,
+    model_id INT,
+    provider_id INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE SET NULL,
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL
+);
+
+-- 7. usage_logs - Log sử dụng
+CREATE TABLE usage_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id INT,
+    provider_id INT NOT NULL,
+    provider_key_id INT,
+    model_id INT NOT NULL,
+    prompt_tokens INT DEFAULT 0,
+    completion_tokens INT DEFAULT 0,
+    latency_ms INT,
+    status VARCHAR(20) NOT NULL,
+    error_message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE SET NULL,
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_key_id) REFERENCES provider_keys(id) ON DELETE SET NULL,
+    FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE CASCADE,
+    INDEX idx_usage_provider (provider_id, created_at),
+    INDEX idx_usage_session (session_id, created_at)
+);
+
+-- Seed data: 12 providers
+INSERT INTO providers (name, display_name, base_url, free_tier_info) VALUES
+('openrouter', 'OpenRouter', 'https://openrouter.ai/api/v1', '30+ free models'),
+('google-ai', 'Google AI Studio', 'https://generativelanguage.googleapis.com', '1,500 req/day'),
+('groq', 'Groq', 'https://api.groq.com/openai/v1', '14,400 req/day'),
+('mistral', 'Mistral', 'https://api.mistral.ai/v1', '1B tokens/month'),
+('codestral', 'Codestral', 'https://codestral.mistral.ai/v1', 'Free code generation'),
+('huggingface', 'HuggingFace', 'https://api-inference.huggingface.co/v1', '~100 req/hour'),
+('cerebras', 'Cerebras', 'https://api.cerebras.ai/v1', 'Free API key'),
+('cohere', 'Cohere', 'https://api.cohere.ai/v1', 'Trial API'),
+('nvidia-nim', 'NVIDIA NIM', 'https://integrate.api.nvidia.com/v1', 'Developer access'),
+('github-models', 'GitHub Models', 'https://models.inference.ai.azure.com', 'Free with GitHub'),
+('cloudflare', 'Cloudflare Workers AI', 'https://api.cloudflare.com/client/v4', '10,000 neurons/day'),
+('vertex-ai', 'Vertex AI', 'https://us-central1-aiplatform.googleapis.com', '$300 credits');
