@@ -7,38 +7,45 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const providerRoutes = Router();
 
+// Danh sách provider có sẵn trong code
+const AVAILABLE_PROVIDERS = [
+  { provider_id: "openrouter", display_name: "OpenRouter" },
+  { provider_id: "google_ai", display_name: "Google AI (Gemini)" },
+  { provider_id: "groq", display_name: "Groq" },
+  { provider_id: "cerebras", display_name: "Cerebras" },
+];
+
+// GET /providers/available - Danh sách provider có sẵn trong code
+providerRoutes.get(
+  "/available",
+  asyncHandler(async (_req: any, res: any) => {
+    return ok(res, AVAILABLE_PROVIDERS);
+  })
+);
+
 // GET all providers
 providerRoutes.get(
   "/",
   asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT * FROM providers ORDER BY priority DESC, name"
+      `SELECT p.*, 
+      (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count
+    FROM providers p ORDER BY p.priority DESC, p.provider_id`
     );
     return ok(res, rows);
   })
 );
 
-// GET active providers only (must be before /:id)
+// GET active providers only
 providerRoutes.get(
   "/active",
   asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT * FROM providers WHERE is_active = TRUE ORDER BY priority DESC"
+      `SELECT p.*, 
+      (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count
+    FROM providers p WHERE p.is_active = TRUE ORDER BY p.priority DESC`
     );
     return ok(res, rows);
-  })
-);
-
-// GET provider by name (must be before /:id)
-providerRoutes.get(
-  "/name/:name",
-  asyncHandler(async (req: any, res: any) => {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT * FROM providers WHERE name = ?",
-      [req.params.name]
-    );
-    if (rows.length === 0) throw NotFound("Provider");
-    return ok(res, rows[0]);
   })
 );
 
@@ -55,33 +62,33 @@ providerRoutes.get(
   })
 );
 
-// POST create provider
+// POST create provider (validate provider_id có sẵn)
 providerRoutes.post(
   "/",
   asyncHandler(async (req: any, res: any) => {
-    const {
-      name,
-      display_name,
-      base_url,
-      is_active,
-      priority,
-      free_tier_info,
-    } = req.body;
-    if (!name || !display_name) {
-      throw BadRequest("name and display_name are required");
-    }
-    const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO providers (name, display_name, base_url, is_active, priority, free_tier_info) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        name,
-        display_name,
-        base_url,
-        is_active ?? true,
-        priority ?? 0,
-        free_tier_info,
-      ]
+    const { provider_id, is_active = true, priority = 0, config } = req.body;
+
+    // Validate provider_id có trong danh sách
+    const validProvider = AVAILABLE_PROVIDERS.find(
+      (p) => p.provider_id === provider_id
     );
-    return created(res, { id: result.insertId, name, display_name });
+    if (!validProvider) {
+      throw BadRequest(
+        `Invalid provider_id. Available: ${AVAILABLE_PROVIDERS.map(
+          (p) => p.provider_id
+        ).join(", ")}`
+      );
+    }
+
+    const [result] = await pool.query<ResultSetHeader>(
+      "INSERT INTO providers (provider_id, is_active, priority, config) VALUES (?, ?, ?, ?)",
+      [provider_id, is_active, priority, config ? JSON.stringify(config) : null]
+    );
+    return created(res, {
+      id: result.insertId,
+      provider_id,
+      display_name: validProvider.display_name,
+    });
   })
 );
 
@@ -89,16 +96,14 @@ providerRoutes.post(
 providerRoutes.put(
   "/:id",
   asyncHandler(async (req: any, res: any) => {
-    const { display_name, base_url, is_active, priority, free_tier_info } =
-      req.body;
+    const { is_active, priority, config } = req.body;
     const [result] = await pool.query<ResultSetHeader>(
-      "UPDATE providers SET display_name = COALESCE(?, display_name), base_url = COALESCE(?, base_url), is_active = COALESCE(?, is_active), priority = COALESCE(?, priority), free_tier_info = COALESCE(?, free_tier_info) WHERE id = ?",
+      `UPDATE providers SET is_active = COALESCE(?, is_active), priority = COALESCE(?, priority), 
+     config = COALESCE(?, config) WHERE id = ?`,
       [
-        display_name,
-        base_url,
         is_active,
         priority,
-        free_tier_info,
+        config ? JSON.stringify(config) : null,
         req.params.id,
       ]
     );

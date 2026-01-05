@@ -1,5 +1,4 @@
 -- LLM Gateway Database Schema
--- 7 Tables (No sample data - add via API)
 
 CREATE DATABASE IF NOT EXISTS llm_gateway;
 USE llm_gateway;
@@ -13,23 +12,33 @@ CREATE TABLE admins (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. providers - 12 nhà cung cấp LLM
+-- 2. providers - Nhà cung cấp LLM (chỉ lưu config, code có sẵn)
 CREATE TABLE providers (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
-    display_name VARCHAR(100) NOT NULL,
-    base_url VARCHAR(255),
+    provider_id VARCHAR(50) NOT NULL UNIQUE,      -- ID có sẵn: 'openrouter', 'google_ai', 'groq', 'cerebras'
     is_active BOOLEAN DEFAULT TRUE,
     priority INT DEFAULT 0,
-    free_tier_info TEXT,
+    config JSON,                                   -- Config riêng (nếu cần)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. provider_keys - API Keys của providers (rotate)
-CREATE TABLE provider_keys (
+-- 3. tools - Tools cho AI gọi (chỉ lưu config, code có sẵn)
+CREATE TABLE tools (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    provider_id INT NOT NULL,
-    api_key_encrypted TEXT NOT NULL,
+    tool_id VARCHAR(50) NOT NULL UNIQUE,          -- ID có sẵn: 'google_search'
+    is_active BOOLEAN DEFAULT TRUE,
+    config JSON,                                   -- Config riêng (vd: google_cse_id)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. api_keys - API Keys chung cho cả providers và tools
+-- Lưu credentials dạng JSON mã hóa: {"api_key": "xxx"} hoặc {"api_key": "xxx", "cse_id": "yyy"}
+CREATE TABLE api_keys (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    key_type ENUM('provider', 'tool') NOT NULL,
+    provider_id INT,                               -- FK tới providers (nếu type = 'provider')
+    tool_id INT,                                   -- FK tới tools (nếu type = 'tool')
+    credentials_encrypted TEXT NOT NULL,           -- JSON mã hóa chứa tất cả credentials cần thiết
     name VARCHAR(100),
     is_active BOOLEAN DEFAULT TRUE,
     priority INT DEFAULT 0,
@@ -39,10 +48,18 @@ CREATE TABLE provider_keys (
     last_error_at DATETIME,
     last_error_message TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
+    FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE,
+    INDEX idx_api_keys_provider (key_type, provider_id, is_active, priority),
+    INDEX idx_api_keys_tool (key_type, tool_id, is_active, priority),
+    -- Ràng buộc: provider_id hoặc tool_id phải có giá trị tùy theo type
+    CONSTRAINT chk_key_reference CHECK (
+        (key_type = 'provider' AND provider_id IS NOT NULL AND tool_id IS NULL) OR
+        (key_type = 'tool' AND tool_id IS NOT NULL AND provider_id IS NULL)
+    )
 );
 
--- 4. models - Models của providers
+-- 5. models - Models của providers
 CREATE TABLE models (
     id INT AUTO_INCREMENT PRIMARY KEY,
     provider_id INT NOT NULL,
@@ -56,7 +73,7 @@ CREATE TABLE models (
     UNIQUE KEY unique_provider_model (provider_id, model_id)
 );
 
--- 5. chat_sessions - Phiên chat
+-- 6. chat_sessions - Phiên chat
 CREATE TABLE chat_sessions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     session_key VARCHAR(100) NOT NULL UNIQUE,
@@ -65,7 +82,7 @@ CREATE TABLE chat_sessions (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 6. chat_messages - Tin nhắn trong phiên
+-- 7. chat_messages - Tin nhắn trong phiên
 CREATE TABLE chat_messages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     session_id INT NOT NULL,
@@ -79,23 +96,32 @@ CREATE TABLE chat_messages (
     FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL
 );
 
--- 7. usage_logs - Log sử dụng
+-- 8. usage_logs - Log sử dụng chung
 CREATE TABLE usage_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    log_type ENUM('llm', 'tool') NOT NULL DEFAULT 'llm',
     session_id INT,
-    provider_id INT NOT NULL,
-    provider_key_id INT,
-    model_id INT NOT NULL,
+    provider_id INT,
+    tool_id INT,
+    api_key_id INT,
+    model_id INT,
+    -- LLM specific
     prompt_tokens INT DEFAULT 0,
     completion_tokens INT DEFAULT 0,
+    -- Tool specific  
+    input_params JSON,
+    response_data JSON,
+    -- Common
     latency_ms INT,
     status VARCHAR(20) NOT NULL,
     error_message TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE SET NULL,
-    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
-    FOREIGN KEY (provider_key_id) REFERENCES provider_keys(id) ON DELETE SET NULL,
-    FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL,
+    FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE SET NULL,
+    FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE SET NULL,
+    FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE SET NULL,
     INDEX idx_usage_provider (provider_id, created_at),
+    INDEX idx_usage_tool (tool_id, created_at),
     INDEX idx_usage_session (session_id, created_at)
 );
