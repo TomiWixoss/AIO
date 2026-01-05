@@ -35,9 +35,20 @@ providerKeyRoutes.get(
   })
 );
 
+// PUT reset daily counts (must be before /:id)
+providerKeyRoutes.put(
+  "/reset-daily",
+  asyncHandler(async (_req: any, res: any) => {
+    const [result] = await pool.query<ResultSetHeader>(
+      "UPDATE provider_keys SET requests_today = 0"
+    );
+    return ok(res, { affected: result.affectedRows }, "Reset all daily counts");
+  })
+);
+
 // GET key by id
 providerKeyRoutes.get(
-  "/:id(\\d+)",
+  "/:id",
   asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT id, provider_id, name, is_active, priority, requests_today, daily_limit, last_used_at, last_error_at, created_at FROM provider_keys WHERE id = ?",
@@ -67,7 +78,7 @@ providerKeyRoutes.post(
 
 // PUT update key
 providerKeyRoutes.put(
-  "/:id(\\d+)",
+  "/:id",
   asyncHandler(async (req: any, res: any) => {
     const { name, is_active, priority, daily_limit } = req.body;
     const [result] = await pool.query<ResultSetHeader>(
@@ -106,17 +117,6 @@ providerKeyRoutes.put(
     ]);
     if (result.affectedRows === 0) throw NotFound("Provider key");
     return ok(res, null, "Error recorded");
-  })
-);
-
-// PUT reset daily counts (call at midnight)
-providerKeyRoutes.put(
-  "/reset-daily",
-  asyncHandler(async (_req: any, res: any) => {
-    const [result] = await pool.query<ResultSetHeader>(
-      "UPDATE provider_keys SET requests_today = 0"
-    );
-    return ok(res, { affected: result.affectedRows }, "Reset all daily counts");
   })
 );
 

@@ -18,7 +18,7 @@ providerRoutes.get(
   })
 );
 
-// GET active providers only
+// GET active providers only (must be before /:id)
 providerRoutes.get(
   "/active",
   asyncHandler(async (_req: any, res: any) => {
@@ -29,26 +29,26 @@ providerRoutes.get(
   })
 );
 
-// GET provider by id
-providerRoutes.get(
-  "/:id(\\d+)",
-  asyncHandler(async (req: any, res: any) => {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT * FROM providers WHERE id = ?",
-      [req.params.id]
-    );
-    if (rows.length === 0) throw NotFound("Provider");
-    return ok(res, rows[0]);
-  })
-);
-
-// GET provider by name
+// GET provider by name (must be before /:id)
 providerRoutes.get(
   "/name/:name",
   asyncHandler(async (req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT * FROM providers WHERE name = ?",
       [req.params.name]
+    );
+    if (rows.length === 0) throw NotFound("Provider");
+    return ok(res, rows[0]);
+  })
+);
+
+// GET provider by id
+providerRoutes.get(
+  "/:id",
+  asyncHandler(async (req: any, res: any) => {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT * FROM providers WHERE id = ?",
+      [req.params.id]
     );
     if (rows.length === 0) throw NotFound("Provider");
     return ok(res, rows[0]);
