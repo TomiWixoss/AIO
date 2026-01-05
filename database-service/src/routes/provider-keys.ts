@@ -8,19 +8,7 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const providerKeyRoutes = Router();
 
-// GET all keys for a provider
-providerKeyRoutes.get(
-  "/provider/:providerId",
-  asyncHandler(async (req: any, res: any) => {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, provider_id, name, is_active, priority, requests_today, daily_limit, last_used_at, last_error_at, created_at FROM provider_keys WHERE provider_id = ? ORDER BY priority DESC",
-      [req.params.providerId]
-    );
-    return ok(res, rows);
-  })
-);
-
-// GET active keys for a provider (for rotation)
+// GET active keys for a provider (for rotation) - MUST be before /provider/:providerId
 providerKeyRoutes.get(
   "/provider/:providerId/active",
   asyncHandler(async (req: any, res: any) => {
@@ -29,6 +17,18 @@ providerKeyRoutes.get(
      WHERE provider_id = ? AND is_active = TRUE 
      AND (daily_limit IS NULL OR requests_today < daily_limit)
      ORDER BY priority DESC, requests_today ASC`,
+      [req.params.providerId]
+    );
+    return ok(res, rows);
+  })
+);
+
+// GET all keys for a provider
+providerKeyRoutes.get(
+  "/provider/:providerId",
+  asyncHandler(async (req: any, res: any) => {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT id, provider_id, name, is_active, priority, requests_today, daily_limit, last_used_at, last_error_at, created_at FROM provider_keys WHERE provider_id = ? ORDER BY priority DESC",
       [req.params.providerId]
     );
     return ok(res, rows);
