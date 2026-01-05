@@ -7,49 +7,57 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const providerRoutes = Router();
 
-// Danh sách provider có sẵn trong code
-const AVAILABLE_PROVIDERS = [
-  { provider_id: "openrouter", display_name: "OpenRouter" },
-  { provider_id: "google_ai", display_name: "Google AI (Gemini)" },
-  { provider_id: "groq", display_name: "Groq" },
-  { provider_id: "cerebras", display_name: "Cerebras" },
-];
+// Provider IDs được hỗ trợ trong code
+const SUPPORTED_PROVIDERS = ["openrouter", "google_ai", "groq", "cerebras"];
 
-// GET /providers/available - Danh sách provider có sẵn trong code
+// GET /providers/supported - Danh sách provider được hỗ trợ
 providerRoutes.get(
-  "/available",
+  "/supported",
   asyncHandler(async (_req: any, res: any) => {
-    return ok(res, AVAILABLE_PROVIDERS);
+    return ok(res, SUPPORTED_PROVIDERS);
   })
 );
 
-// GET all providers
+// GET /providers - Lấy tất cả providers
 providerRoutes.get(
   "/",
   asyncHandler(async (_req: any, res: any) => {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT p.*, 
+    const [rows] = await pool.query<RowDataPacket[]>(`
+    SELECT p.*, 
       (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count
-    FROM providers p ORDER BY p.priority DESC, p.provider_id`
-    );
+    FROM providers p ORDER BY p.priority DESC, p.provider_id
+  `);
     return ok(res, rows);
   })
 );
 
-// GET active providers only
+// GET /providers/active
 providerRoutes.get(
   "/active",
   asyncHandler(async (_req: any, res: any) => {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT p.*, 
+    const [rows] = await pool.query<RowDataPacket[]>(`
+    SELECT p.*, 
       (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count
-    FROM providers p WHERE p.is_active = TRUE ORDER BY p.priority DESC`
-    );
+    FROM providers p WHERE p.is_active = TRUE ORDER BY p.priority DESC
+  `);
     return ok(res, rows);
   })
 );
 
-// GET provider by id
+// GET /providers/name/:name - Lấy provider theo provider_id
+providerRoutes.get(
+  "/name/:name",
+  asyncHandler(async (req: any, res: any) => {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT * FROM providers WHERE provider_id = ?",
+      [req.params.name]
+    );
+    if (rows.length === 0) throw NotFound("Provider");
+    return ok(res, rows[0]);
+  })
+);
+
+// GET /providers/:id
 providerRoutes.get(
   "/:id",
   asyncHandler(async (req: any, res: any) => {
@@ -62,21 +70,19 @@ providerRoutes.get(
   })
 );
 
-// POST create provider (validate provider_id có sẵn)
+// POST /providers - Tạo provider
 providerRoutes.post(
   "/",
   asyncHandler(async (req: any, res: any) => {
     const { provider_id, is_active = true, priority = 0, config } = req.body;
 
-    // Validate provider_id có trong danh sách
-    const validProvider = AVAILABLE_PROVIDERS.find(
-      (p) => p.provider_id === provider_id
-    );
-    if (!validProvider) {
+    if (!provider_id) {
+      throw BadRequest("provider_id is required");
+    }
+
+    if (!SUPPORTED_PROVIDERS.includes(provider_id)) {
       throw BadRequest(
-        `Invalid provider_id. Available: ${AVAILABLE_PROVIDERS.map(
-          (p) => p.provider_id
-        ).join(", ")}`
+        `Invalid provider_id. Supported: ${SUPPORTED_PROVIDERS.join(", ")}`
       );
     }
 
@@ -84,15 +90,11 @@ providerRoutes.post(
       "INSERT INTO providers (provider_id, is_active, priority, config) VALUES (?, ?, ?, ?)",
       [provider_id, is_active, priority, config ? JSON.stringify(config) : null]
     );
-    return created(res, {
-      id: result.insertId,
-      provider_id,
-      display_name: validProvider.display_name,
-    });
+    return created(res, { id: result.insertId, provider_id });
   })
 );
 
-// PUT update provider
+// PUT /providers/:id
 providerRoutes.put(
   "/:id",
   asyncHandler(async (req: any, res: any) => {
@@ -112,7 +114,7 @@ providerRoutes.put(
   })
 );
 
-// DELETE provider
+// DELETE /providers/:id
 providerRoutes.delete(
   "/:id",
   asyncHandler(async (req: any, res: any) => {

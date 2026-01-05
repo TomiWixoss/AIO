@@ -1,25 +1,29 @@
-import { createTool, ToolResult } from "../tools/index.js";
+import {
+  executeCustomApiTool,
+  ToolConfig,
+  ToolResult,
+} from "../tools/custom-api.js";
+export { ToolConfig, ToolResult };
 import { dbGet } from "../utils/db-client.js";
 import { decrypt } from "../utils/encryption.js";
 import { logger } from "../utils/logger.js";
 
-export interface ToolConfig {
-  id: number;
-  tool_id: string;
-  credentials: Record<string, any>;
-}
-
 interface ToolRow {
   id: number;
-  tool_id: string;
-  is_active: boolean;
-  config: string | null;
+  name: string;
+  description: string;
+  endpoint_url: string;
+  http_method: "GET" | "POST" | "PUT" | "DELETE";
+  headers_template: string | null;
+  body_template: string | null;
+  query_params_template: string | null;
+  parameters: string;
+  response_mapping: string | null;
 }
 
 interface ApiKeyRow {
   id: number;
   credentials_encrypted: string;
-  priority: number;
 }
 
 // Generate system prompt cho tools
@@ -28,26 +32,34 @@ export function generateToolSystemPrompt(tools: ToolConfig[]): string {
 
   const toolDescriptions = tools
     .map((t) => {
-      const tool = createTool(t.tool_id);
-      if (!tool) return "";
-      const def = tool.getDefinition();
-      return `- ${def.name}: ${def.description}
-  Parameters: ${JSON.stringify(def.parameters.properties)}`;
+      const paramsDesc = Object.entries(t.parameters)
+        .map(
+          ([name, info]) =>
+            `    - ${name} (${info.type}${
+              info.required ? ", required" : ""
+            }): ${info.description}`
+        )
+        .join("\n");
+
+      return `- ${t.name}: ${t.description}
+  Parameters:
+${paramsDesc}`;
     })
-    .filter(Boolean)
-    .join("\n");
+    .join("\n\n");
 
   return `
-You have access to the following tools:
+You have access to the following tools to help answer user questions:
+
 ${toolDescriptions}
 
 To use a tool, wrap your request in [tool] tags like this:
 [tool]
-{"name": "tool_name", "params": {"param1": "value1"}}
+{"name": "tool_name", "params": {"param1": "value1", "param2": "value2"}}
 [/tool]
 
 Wait for the tool result before continuing. The result will be provided in [tool_result] tags.
 Only use tools when necessary to answer the user's question.
+Always use the exact parameter names as specified above.
 `;
 }
 
@@ -66,8 +78,11 @@ export function parseToolCalls(
     try {
       const json = match[1].trim();
       const parsed = JSON.parse(json);
-      if (parsed.name && parsed.params) {
-        calls.push(parsed);
+      if (parsed.name) {
+        calls.push({
+          name: parsed.name,
+          params: parsed.params || {},
+        });
       }
     } catch (e) {
       logger.warn("Failed to parse tool call", { content: match[1] });
@@ -77,33 +92,21 @@ export function parseToolCalls(
   return calls.length > 0 ? calls : null;
 }
 
-// Execute tool và trả về kết quả
+// Execute tool
 export async function executeTool(
-  toolId: string,
+  toolName: string,
   params: Record<string, any>,
   toolConfigs: ToolConfig[]
 ): Promise<ToolResult> {
-  const toolConfig = toolConfigs.find((t) => t.tool_id === toolId);
+  const toolConfig = toolConfigs.find((t) => t.name === toolName);
   if (!toolConfig) {
-    return { success: false, error: `Tool ${toolId} not configured` };
+    return { success: false, error: `Tool "${toolName}" not found` };
   }
 
-  const tool = createTool(toolId);
-  if (!tool) {
-    return { success: false, error: `Tool ${toolId} not found` };
-  }
-
-  try {
-    const result = await tool.execute(params, toolConfig.credentials);
-    logger.info("Tool executed", { toolId, success: result.success });
-    return result;
-  } catch (error: any) {
-    logger.error("Tool execution error", { toolId, error: error.message });
-    return { success: false, error: error.message };
-  }
+  return executeCustomApiTool(toolConfig, params);
 }
 
-// Format tool result để gửi lại cho model
+// Format tool result
 export function formatToolResult(toolName: string, result: ToolResult): string {
   return `[tool_result]
 Tool: ${toolName}
@@ -116,7 +119,7 @@ ${
 [/tool_result]`;
 }
 
-// Load tool configs từ DB (với credentials đã decrypt)
+// Load tool configs từ DB
 export async function loadToolConfigs(
   toolIds: number[]
 ): Promise<ToolConfig[]> {
@@ -126,23 +129,41 @@ export async function loadToolConfigs(
 
   for (const toolId of toolIds) {
     try {
-      // Lấy tool info
       const tool = await dbGet<ToolRow>(`/tools/${toolId}`);
 
-      // Lấy active key cho tool
-      const keys = await dbGet<ApiKeyRow[]>(`/api-keys/tool/${toolId}/active`);
-      if (keys.length === 0) {
-        logger.warn("No active key for tool", { toolId });
-        continue;
+      // Lấy active key cho tool (nếu có)
+      let credentials: Record<string, any> = {};
+      try {
+        const keys = await dbGet<ApiKeyRow[]>(
+          `/api-keys/tool/${toolId}/active`
+        );
+        if (keys.length > 0) {
+          credentials = JSON.parse(decrypt(keys[0].credentials_encrypted));
+        }
+      } catch (e) {
+        // Tool có thể không cần API key
+        logger.debug("No API key for tool", { toolId });
       }
 
-      // Lấy key đầu tiên (đã sort theo priority)
-      const key = keys[0];
-      const credentials = JSON.parse(decrypt(key.credentials_encrypted));
-
       configs.push({
-        id: toolId,
-        tool_id: tool.tool_id,
+        id: tool.id,
+        name: tool.name,
+        description: tool.description,
+        endpoint_url: tool.endpoint_url,
+        http_method: tool.http_method,
+        headers_template: tool.headers_template
+          ? JSON.parse(tool.headers_template)
+          : null,
+        body_template: tool.body_template
+          ? JSON.parse(tool.body_template)
+          : null,
+        query_params_template: tool.query_params_template
+          ? JSON.parse(tool.query_params_template)
+          : null,
+        parameters: JSON.parse(tool.parameters),
+        response_mapping: tool.response_mapping
+          ? JSON.parse(tool.response_mapping)
+          : null,
         credentials,
       });
     } catch (error: any) {

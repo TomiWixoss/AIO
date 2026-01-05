@@ -17,6 +17,7 @@ export async function chatCompletion(
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
+    tool_ids?: number[]; // IDs của tools từ DB
   },
   signal?: AbortSignal
 ): Promise<ChatResponse> {
@@ -44,6 +45,7 @@ export async function chatCompletionStream(
     messages: { role: string; content: string }[];
     temperature?: number;
     max_tokens?: number;
+    tool_ids?: number[]; // IDs của tools từ DB
   },
   res: Response,
   signal?: AbortSignal,

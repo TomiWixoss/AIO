@@ -12,33 +12,48 @@ CREATE TABLE admins (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. providers - Nhà cung cấp LLM (chỉ lưu config, code có sẵn)
+-- 2. providers - Nhà cung cấp LLM
 CREATE TABLE providers (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    provider_id VARCHAR(50) NOT NULL UNIQUE,      -- ID có sẵn: 'openrouter', 'google_ai', 'groq', 'cerebras'
+    provider_id VARCHAR(50) NOT NULL UNIQUE,
     is_active BOOLEAN DEFAULT TRUE,
     priority INT DEFAULT 0,
-    config JSON,                                   -- Config riêng (nếu cần)
+    config JSON,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. tools - Tools cho AI gọi (chỉ lưu config, code có sẵn)
+-- 3. tools - Custom API Tools (cấu hình động)
+-- Doanh nghiệp tự định nghĩa API endpoint để AI gọi
 CREATE TABLE tools (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    tool_id VARCHAR(50) NOT NULL UNIQUE,          -- ID có sẵn: 'google_search'
+    name VARCHAR(100) NOT NULL,                    -- Tên tool: 'check_order', 'get_product', 'book_appointment'
+    description TEXT NOT NULL,                     -- Mô tả cho AI hiểu tool làm gì
+    
+    -- API Configuration
+    endpoint_url VARCHAR(500) NOT NULL,            -- URL API: https://api.company.com/orders/{order_id}
+    http_method ENUM('GET', 'POST', 'PUT', 'DELETE') DEFAULT 'GET',
+    headers_template JSON,                         -- Headers: {"Authorization": "Bearer {{api_key}}", "Content-Type": "application/json"}
+    body_template JSON,                            -- Body template cho POST/PUT: {"customer_id": "{{customer_id}}"}
+    query_params_template JSON,                    -- Query params: {"status": "{{status}}"}
+    
+    -- Parameters Schema (cho AI biết cần truyền gì)
+    parameters JSON NOT NULL,                      -- JSON Schema: {"order_id": {"type": "string", "description": "Mã đơn hàng"}}
+    
+    -- Response mapping
+    response_mapping JSON,                         -- Map response: {"status": "$.order.status", "total": "$.order.total"}
+    
     is_active BOOLEAN DEFAULT TRUE,
-    config JSON,                                   -- Config riêng (vd: google_cse_id)
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 4. api_keys - API Keys chung cho cả providers và tools
--- Lưu credentials dạng JSON mã hóa: {"api_key": "xxx"} hoặc {"api_key": "xxx", "cse_id": "yyy"}
+-- 4. api_keys - API Keys chung cho providers và tools
 CREATE TABLE api_keys (
     id INT AUTO_INCREMENT PRIMARY KEY,
     key_type ENUM('provider', 'tool') NOT NULL,
-    provider_id INT,                               -- FK tới providers (nếu type = 'provider')
-    tool_id INT,                                   -- FK tới tools (nếu type = 'tool')
-    credentials_encrypted TEXT NOT NULL,           -- JSON mã hóa chứa tất cả credentials cần thiết
+    provider_id INT,
+    tool_id INT,
+    credentials_encrypted TEXT NOT NULL,           -- JSON mã hóa: {"api_key": "xxx"} hoặc {"api_key": "xxx", "secret": "yyy"}
     name VARCHAR(100),
     is_active BOOLEAN DEFAULT TRUE,
     priority INT DEFAULT 0,
@@ -52,7 +67,6 @@ CREATE TABLE api_keys (
     FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE,
     INDEX idx_api_keys_provider (key_type, provider_id, is_active, priority),
     INDEX idx_api_keys_tool (key_type, tool_id, is_active, priority),
-    -- Ràng buộc: provider_id hoặc tool_id phải có giá trị tùy theo type
     CONSTRAINT chk_key_reference CHECK (
         (key_type = 'provider' AND provider_id IS NOT NULL AND tool_id IS NULL) OR
         (key_type = 'tool' AND tool_id IS NOT NULL AND provider_id IS NULL)
@@ -90,13 +104,14 @@ CREATE TABLE chat_messages (
     content TEXT NOT NULL,
     model_id INT,
     provider_id INT,
+    metadata JSON,                                 -- Lưu tool_executions nếu có
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE SET NULL,
     FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL
 );
 
--- 8. usage_logs - Log sử dụng chung
+-- 8. usage_logs - Log sử dụng
 CREATE TABLE usage_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     log_type ENUM('llm', 'tool') NOT NULL DEFAULT 'llm',
@@ -105,13 +120,10 @@ CREATE TABLE usage_logs (
     tool_id INT,
     api_key_id INT,
     model_id INT,
-    -- LLM specific
     prompt_tokens INT DEFAULT 0,
     completion_tokens INT DEFAULT 0,
-    -- Tool specific  
     input_params JSON,
     response_data JSON,
-    -- Common
     latency_ms INT,
     status VARCHAR(20) NOT NULL,
     error_message TEXT,

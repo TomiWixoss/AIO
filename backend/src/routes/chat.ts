@@ -69,6 +69,7 @@ chatRoutes.post("/", async (req, res) => {
       temperature,
       max_tokens,
       stream = false,
+      tool_ids, // IDs của tools từ DB
     } = req.body;
 
     // Hỗ trợ cả 2 format: message (single) hoặc messages (array)
@@ -156,6 +157,7 @@ chatRoutes.post("/", async (req, res) => {
             messages: llmMessages,
             temperature,
             max_tokens,
+            tool_ids, // Truyền tool_ids qua gateway
           },
           res,
           controller.signal,
@@ -216,6 +218,7 @@ chatRoutes.post("/", async (req, res) => {
           messages: llmMessages,
           temperature,
           max_tokens,
+          tool_ids, // Truyền tool_ids qua gateway
         },
         controller.signal
       );
