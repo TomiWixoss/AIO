@@ -1,9 +1,21 @@
 import { executeCustomApiTool } from "../tools/custom-api.js";
 import type { ToolConfig, ToolResult } from "../tools/custom-api.js";
 export type { ToolConfig, ToolResult };
+import {
+  searchKnowledge,
+  knowledgeSearchToolDefinition,
+} from "../tools/knowledge-search.js";
 import { dbGet } from "../utils/db-client.js";
 import { decrypt } from "../utils/encryption.js";
 import { logger } from "../utils/logger.js";
+
+// Built-in tools
+const BUILTIN_TOOLS = {
+  search_knowledge: {
+    execute: searchKnowledge,
+    definition: knowledgeSearchToolDefinition,
+  },
+};
 
 interface ToolRow {
   id: number;
@@ -24,14 +36,43 @@ interface ApiKeyRow {
 }
 
 // Generate system prompt cho tools
-export function generateToolSystemPrompt(tools: ToolConfig[]): string {
-  if (tools.length === 0) return "";
+export function generateToolSystemPrompt(
+  tools: ToolConfig[],
+  includeBuiltinTools: boolean = true
+): string {
+  const allTools: Array<{
+    name: string;
+    description: string;
+    parameters: Record<string, any>;
+  }> = [];
 
-  const toolDescriptions = tools
+  // Add custom API tools
+  for (const t of tools) {
+    allTools.push({
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    });
+  }
+
+  // Add built-in tools
+  if (includeBuiltinTools) {
+    for (const [name, tool] of Object.entries(BUILTIN_TOOLS)) {
+      allTools.push({
+        name,
+        description: tool.definition.description,
+        parameters: tool.definition.parameters,
+      });
+    }
+  }
+
+  if (allTools.length === 0) return "";
+
+  const toolDescriptions = allTools
     .map((t) => {
       const paramsDesc = Object.entries(t.parameters)
         .map(
-          ([name, info]) =>
+          ([name, info]: [string, any]) =>
             `    - ${name} (${info.type}${
               info.required ? ", required" : ""
             }): ${info.description}`
@@ -95,6 +136,13 @@ export async function executeTool(
   params: Record<string, any>,
   toolConfigs: ToolConfig[]
 ): Promise<ToolResult> {
+  // Check built-in tools first
+  if (toolName in BUILTIN_TOOLS) {
+    const builtinTool = BUILTIN_TOOLS[toolName as keyof typeof BUILTIN_TOOLS];
+    return builtinTool.execute(params as any);
+  }
+
+  // Then check custom API tools
   const toolConfig = toolConfigs.find((t) => t.name === toolName);
   if (!toolConfig) {
     return { success: false, error: `Tool "${toolName}" not found` };

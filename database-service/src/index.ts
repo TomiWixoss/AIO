@@ -11,6 +11,7 @@ import { modelRoutes } from "./routes/models.js";
 import { chatSessionRoutes } from "./routes/chat-sessions.js";
 import { chatMessageRoutes } from "./routes/chat-messages.js";
 import { usageLogRoutes } from "./routes/usage-logs.js";
+import { knowledgeBaseRoutes } from "./routes/knowledge-bases.js";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use("/models", modelRoutes);
 app.use("/chat-sessions", chatSessionRoutes);
 app.use("/chat-messages", chatMessageRoutes);
 app.use("/usage-logs", usageLogRoutes);
+app.use("/knowledge-bases", knowledgeBaseRoutes);
 
 // Health check
 app.get("/health", async (_req, res) => {

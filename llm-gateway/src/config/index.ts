@@ -12,6 +12,9 @@ const envSchema = z.object({
   // Database Service
   DATABASE_SERVICE_URL: z.string().default("http://localhost:5000"),
 
+  // Vector Service
+  VECTOR_SERVICE_URL: z.string().default("http://localhost:6100"),
+
   // Encryption key for API keys (32 bytes for AES-256)
   ENCRYPTION_KEY: z
     .string()
@@ -35,6 +38,7 @@ export const config = {
   port: parseInt(env.PORT),
   nodeEnv: env.NODE_ENV,
   databaseServiceUrl: env.DATABASE_SERVICE_URL,
+  vectorServiceUrl: env.VECTOR_SERVICE_URL,
   encryptionKey: env.ENCRYPTION_KEY,
 
   retry: {

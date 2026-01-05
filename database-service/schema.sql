@@ -137,3 +137,26 @@ CREATE TABLE usage_logs (
     INDEX idx_usage_tool (tool_id, created_at),
     INDEX idx_usage_session (session_id, created_at)
 );
+
+-- 9. knowledge_bases - Knowledge bases cho RAG
+CREATE TABLE knowledge_bases (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    collection_id INT,                             -- ID của collection trong vector-service
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 10. knowledge_items - Dữ liệu trong knowledge base
+CREATE TABLE knowledge_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    knowledge_base_id INT NOT NULL,
+    content TEXT NOT NULL,
+    metadata JSON,
+    vector_doc_id INT,                             -- ID document trong vector-service (tự động tạo)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (knowledge_base_id) REFERENCES knowledge_bases(id) ON DELETE CASCADE,
+    INDEX idx_knowledge_items_kb (knowledge_base_id)
+);
