@@ -1,5 +1,7 @@
+import crypto from "crypto";
 import { dbGet, dbPut } from "../utils/db-client.js";
 import { logger } from "../utils/logger.js";
+import { config } from "../config/index.js";
 
 interface ProviderKey {
   id: number;
@@ -20,7 +22,6 @@ interface Provider {
 
 // Cache để giảm số lần gọi DB
 const providerCache = new Map<string, Provider>();
-const keyCache = new Map<number, ProviderKey[]>();
 const CACHE_TTL = 60000; // 1 minute
 let lastCacheUpdate = 0;
 
@@ -88,7 +89,34 @@ export async function markKeyError(
 }
 
 export async function decryptApiKey(encryptedKey: string): Promise<string> {
-  // TODO: Implement proper decryption
-  // For now, assume keys are stored in plain text (not recommended for production)
-  return encryptedKey;
+  try {
+    // Format: iv:authTag:encrypted (hex)
+    const parts = encryptedKey.split(":");
+
+    if (parts.length !== 3) {
+      // Fallback: nếu không đúng format, trả về nguyên (cho dev/test)
+      logger.warn("Key not encrypted, returning as-is");
+      return encryptedKey;
+    }
+
+    const iv = Buffer.from(parts[0], "hex");
+    const authTag = Buffer.from(parts[1], "hex");
+    const encrypted = parts[2];
+
+    const decipher = crypto.createDecipheriv(
+      "aes-256-gcm",
+      Buffer.from(config.encryptionKey, "utf8"),
+      iv
+    );
+
+    decipher.setAuthTag(authTag);
+
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+
+    return decrypted;
+  } catch (error) {
+    logger.error("Failed to decrypt API key", { error });
+    throw new Error("Failed to decrypt API key");
+  }
 }

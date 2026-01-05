@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { OpenRouter } from "@openrouter/sdk";
 import { Response } from "express";
 import { BaseProvider } from "./base.js";
 import {
@@ -12,15 +12,24 @@ import { v4 as uuidv4 } from "uuid";
 export class OpenRouterProvider extends BaseProvider {
   readonly name: Provider = "openrouter";
 
-  private createClient(apiKey: string): OpenAI {
-    return new OpenAI({
-      baseURL: "https://openrouter.ai/api/v1",
-      apiKey,
-      defaultHeaders: {
-        "HTTP-Referer": process.env.APP_URL || "http://localhost:3000",
-        "X-Title": "LLM Gateway",
-      },
-    });
+  private createClient(apiKey: string): OpenRouter {
+    return new OpenRouter({ apiKey });
+  }
+
+  // Convert messages sang format OpenRouter SDK
+  private buildInput(messages: ChatCompletionRequest["messages"]) {
+    // Lọc bỏ system messages (sẽ dùng instructions)
+    return messages
+      .filter((m) => m.role !== "system")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+  }
+
+  // Lấy system instruction từ messages
+  private getInstructions(messages: ChatCompletionRequest["messages"]) {
+    return messages.find((m) => m.role === "system")?.content;
   }
 
   async chatCompletion(
@@ -29,33 +38,44 @@ export class OpenRouterProvider extends BaseProvider {
   ): Promise<ChatCompletionResponse> {
     try {
       const client = this.createClient(apiKey);
-      const response = await client.chat.completions.create({
+      const input = this.buildInput(request.messages);
+      const instructions = this.getInstructions(request.messages);
+
+      // SDK mới dùng callModel
+      const result = client.callModel({
         model: request.model,
-        messages: request.messages,
+        input,
+        instructions,
         temperature: request.temperature,
-        max_tokens: request.max_tokens,
-        top_p: request.top_p,
-        stop: request.stop,
+        maxOutputTokens: request.max_tokens,
+        topP: request.top_p,
       });
 
+      const response = await result.getResponse();
+      const text = await result.getText();
+
       return {
-        id: response.id || uuidv4(),
+        id: uuidv4(),
         provider: this.name,
         model: request.model,
-        choices: response.choices.map((choice, index) => ({
-          index,
-          message: {
-            role: choice.message.role as "assistant",
-            content: choice.message.content || "",
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant" as const,
+              content: text || "",
+            },
+            finish_reason: "stop",
           },
-          finish_reason: choice.finish_reason || "stop",
-        })),
+        ],
         usage: {
-          prompt_tokens: response.usage?.prompt_tokens || 0,
-          completion_tokens: response.usage?.completion_tokens || 0,
-          total_tokens: response.usage?.total_tokens || 0,
+          prompt_tokens: response.usage?.inputTokens || 0,
+          completion_tokens: response.usage?.outputTokens || 0,
+          total_tokens:
+            (response.usage?.inputTokens || 0) +
+            (response.usage?.outputTokens || 0),
         },
-        created: response.created || Date.now(),
+        created: Date.now(),
       };
     } catch (error: any) {
       throw new GatewayError(500, error.message, this.name);
@@ -69,29 +89,35 @@ export class OpenRouterProvider extends BaseProvider {
   ): Promise<void> {
     try {
       const client = this.createClient(apiKey);
-      const stream = await client.chat.completions.create({
+      const input = this.buildInput(request.messages);
+      const instructions = this.getInstructions(request.messages);
+
+      const result = client.callModel({
         model: request.model,
-        messages: request.messages,
+        input,
+        instructions,
         temperature: request.temperature,
-        max_tokens: request.max_tokens,
-        top_p: request.top_p,
-        stop: request.stop,
-        stream: true,
+        maxOutputTokens: request.max_tokens,
+        topP: request.top_p,
       });
 
-      for await (const chunk of stream) {
+      const id = uuidv4();
+
+      // Dùng getTextStream() để stream
+      for await (const delta of result.getTextStream()) {
         this.sendStreamChunk(res, {
-          id: chunk.id,
+          id,
           provider: this.name,
           model: request.model,
-          choices: chunk.choices.map((choice, index) => ({
-            index,
-            delta: {
-              role: choice.delta.role,
-              content: choice.delta.content,
+          choices: [
+            {
+              index: 0,
+              delta: {
+                content: delta || "",
+              },
+              finish_reason: null,
             },
-            finish_reason: choice.finish_reason,
-          })),
+          ],
         });
       }
       this.sendStreamEnd(res);
