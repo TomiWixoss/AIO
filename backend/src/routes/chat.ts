@@ -4,6 +4,7 @@ import {
   chatCompletion,
   chatCompletionStream,
 } from "../utils/gateway-client.js";
+import { streamManager } from "../utils/stream-manager.js";
 
 export const chatRoutes = Router();
 
@@ -27,6 +28,32 @@ interface DBMessage {
   id: number;
   role: string;
   content: string;
+}
+
+// Helper function để lưu assistant message
+async function saveAssistantMessage(
+  sessionId: number,
+  content: string,
+  provider: string,
+  model: string
+): Promise<void> {
+  // Get provider and model IDs from DB
+  const providerData = await dbGet<Provider>(
+    `/providers/name/${provider}`
+  ).catch(() => null);
+  const modelData = providerData
+    ? await dbGet<Model>(
+        `/models/provider/${providerData.id}/model/${encodeURIComponent(model)}`
+      ).catch(() => null)
+    : null;
+
+  await dbPost("/chat-messages", {
+    session_id: sessionId,
+    role: "assistant",
+    content,
+    provider_id: providerData?.id,
+    model_id: modelData?.id,
+  });
 }
 
 // POST /chat - Main chat endpoint (no auth for web chatbot)
@@ -111,7 +138,78 @@ chatRoutes.post("/", async (req, res) => {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      await chatCompletionStream(
+      // Register stream với session_key và session info
+      const controller = streamManager.register(
+        session.session_key,
+        session.id,
+        res,
+        true,
+        provider,
+        model
+      );
+
+      try {
+        await chatCompletionStream(
+          {
+            provider,
+            model,
+            messages: llmMessages,
+            temperature,
+            max_tokens,
+          },
+          res,
+          controller.signal,
+          // Callback để track content
+          (content) => {
+            streamManager.appendContent(session.session_key, content);
+          }
+        );
+
+        // Stream hoàn thành - lưu full content
+        const fullContent = streamManager.getStreamedContent(
+          session.session_key
+        );
+        if (fullContent) {
+          await saveAssistantMessage(session.id, fullContent, provider, model);
+        }
+      } catch (error: any) {
+        if (error.name === "AbortError") {
+          // Stream was cancelled - lưu partial content
+          const partialContent = streamManager.getStreamedContent(
+            session.session_key
+          );
+          if (partialContent) {
+            await saveAssistantMessage(
+              session.id,
+              partialContent + " [cancelled]",
+              provider,
+              model
+            );
+          }
+          res.write(`data: {"cancelled": true}\n\n`);
+        } else {
+          throw error;
+        }
+      } finally {
+        streamManager.unregister(session.session_key);
+      }
+
+      res.end();
+      return;
+    }
+
+    // Non-streaming response - Register để có thể cancel
+    const controller = streamManager.register(
+      session.session_key,
+      session.id,
+      undefined,
+      false,
+      provider,
+      model
+    );
+
+    try {
+      const response = await chatCompletion(
         {
           provider,
           model,
@@ -119,62 +217,59 @@ chatRoutes.post("/", async (req, res) => {
           temperature,
           max_tokens,
         },
-        res
+        controller.signal
       );
 
-      res.end();
-      return;
-    }
+      // Save assistant message
+      const assistantContent = response.choices?.[0]?.message?.content;
+      if (assistantContent) {
+        // Get provider and model IDs from DB
+        const providerData = await dbGet<Provider>(
+          `/providers/name/${provider}`
+        ).catch(() => null);
+        const modelData = providerData
+          ? await dbGet<Model>(
+              `/models/provider/${providerData.id}/model/${encodeURIComponent(
+                model
+              )}`
+            ).catch(() => null)
+          : null;
 
-    // Non-streaming response
+        await dbPost("/chat-messages", {
+          session_id: session.id,
+          role: "assistant",
+          content: assistantContent,
+          provider_id: providerData?.id,
+          model_id: modelData?.id,
+        });
 
-    // Non-streaming response
-    const response = await chatCompletion({
-      provider,
-      model,
-      messages: llmMessages,
-      temperature,
-      max_tokens,
-    });
+        // Log usage
+        await dbPost("/usage-logs", {
+          session_id: session.id,
+          provider_id: providerData?.id,
+          model_id: modelData?.id,
+          prompt_tokens: response.usage?.prompt_tokens || 0,
+          completion_tokens: response.usage?.completion_tokens || 0,
+          status: "success",
+        });
+      }
 
-    // Save assistant message
-    const assistantContent = response.choices?.[0]?.message?.content;
-    if (assistantContent) {
-      // Get provider and model IDs from DB
-      const providerData = await dbGet<Provider>(
-        `/providers/name/${provider}`
-      ).catch(() => null);
-      const modelData = providerData
-        ? await dbGet<Model>(
-            `/models/provider/${providerData.id}/model/${encodeURIComponent(
-              model
-            )}`
-          ).catch(() => null)
-        : null;
-
-      await dbPost("/chat-messages", {
-        session_id: session.id,
-        role: "assistant",
-        content: assistantContent,
-        provider_id: providerData?.id,
-        model_id: modelData?.id,
+      res.json({
+        ...response,
+        session_key: session.session_key,
       });
-
-      // Log usage
-      await dbPost("/usage-logs", {
-        session_id: session.id,
-        provider_id: providerData?.id,
-        model_id: modelData?.id,
-        prompt_tokens: response.usage?.prompt_tokens || 0,
-        completion_tokens: response.usage?.completion_tokens || 0,
-        status: "success",
-      });
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        // Request was cancelled
+        return res.status(499).json({
+          error: "Request cancelled",
+          cancelled: true,
+        });
+      }
+      throw error;
+    } finally {
+      streamManager.unregister(session.session_key);
     }
-
-    res.json({
-      ...response,
-      session_key: session.session_key,
-    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -198,6 +293,59 @@ chatRoutes.get("/sessions/:key", async (req, res) => {
     );
     const messages = await dbGet(`/chat-messages/session/${session.id}`);
     res.json({ ...session, messages });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /chat/cancel/:sessionKey - Cancel active request
+chatRoutes.post("/cancel/:sessionKey", async (req, res) => {
+  try {
+    const { sessionKey } = req.params;
+
+    // Check if request exists
+    if (!streamManager.isActive(sessionKey)) {
+      return res.status(404).json({
+        success: false,
+        error: "No active request found for this session",
+      });
+    }
+
+    // Get info before cancelling
+    const requestInfo = streamManager.getRequestInfo(sessionKey);
+
+    // Cancel the request - stream handler sẽ tự lưu content
+    const cancelled = streamManager.cancel(sessionKey);
+
+    if (cancelled) {
+      res.json({
+        success: true,
+        message: "Request cancelled successfully",
+        sessionKey,
+        wasStreaming: requestInfo?.isStreaming || false,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: "Failed to cancel request",
+      });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /chat/streams/active - Get all active requests (admin)
+chatRoutes.get("/streams/active", async (_req, res) => {
+  try {
+    const activeRequests = streamManager.getActiveRequests();
+    const requestsInfo = activeRequests.map((key: string) =>
+      streamManager.getRequestInfo(key)
+    );
+    res.json({
+      count: activeRequests.length,
+      requests: requestsInfo,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

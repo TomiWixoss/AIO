@@ -9,18 +9,22 @@ interface ChatResponse {
   usage?: { prompt_tokens: number; completion_tokens: number };
 }
 
-export async function chatCompletion(data: {
-  provider: string;
-  model: string;
-  messages: { role: string; content: string }[];
-  temperature?: number;
-  max_tokens?: number;
-  stream?: boolean;
-}): Promise<ChatResponse> {
+export async function chatCompletion(
+  data: {
+    provider: string;
+    model: string;
+    messages: { role: string; content: string }[];
+    temperature?: number;
+    max_tokens?: number;
+    stream?: boolean;
+  },
+  signal?: AbortSignal
+): Promise<ChatResponse> {
   const res = await fetch(`${BASE_URL}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+    signal, // Pass abort signal
   });
   if (!res.ok) {
     const error = (await res
@@ -41,12 +45,15 @@ export async function chatCompletionStream(
     temperature?: number;
     max_tokens?: number;
   },
-  res: Response
+  res: Response,
+  signal?: AbortSignal,
+  onChunk?: (content: string) => void // Callback để track content
 ): Promise<void> {
   const gatewayRes = await fetch(`${BASE_URL}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...data, stream: true }),
+    signal, // Pass abort signal to fetch
   });
 
   if (!gatewayRes.ok) {
@@ -68,11 +75,35 @@ export async function chatCompletionStream(
 
   try {
     while (true) {
+      // Check if aborted
+      if (signal?.aborted) {
+        reader.cancel();
+        throw new DOMException("Stream cancelled", "AbortError");
+      }
+
       const { done, value } = await reader.read();
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
       res.write(chunk);
+
+      // Extract content from SSE chunks và call callback
+      if (onChunk) {
+        const lines = chunk.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const content = data.choices?.[0]?.delta?.content;
+              if (content) {
+                onChunk(content);
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
     }
   } finally {
     reader.releaseLock();
