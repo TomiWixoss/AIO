@@ -9,15 +9,7 @@ import { BaseProvider } from "./base.js";
 import { OpenRouterProvider } from "./openrouter.js";
 import { GroqProvider } from "./groq.js";
 import { CerebrasProvider } from "./cerebras.js";
-import { MistralProvider } from "./mistral.js";
-import { CodestralProvider } from "./codestral.js";
 import { GoogleAIProvider } from "./google-ai.js";
-import { HuggingFaceProvider } from "./huggingface.js";
-import { NvidiaNimProvider } from "./nvidia-nim.js";
-import { CloudflareProvider } from "./cloudflare.js";
-import { CohereProvider } from "./cohere.js";
-import { VertexAIProvider } from "./vertex-ai.js";
-import { GitHubModelsProvider } from "./github-models.js";
 import { GatewayError } from "../middleware/errorHandler.js";
 import {
   getProviderByName,
@@ -52,15 +44,7 @@ const providerInstances = new Map<Provider, BaseProvider>();
 providerInstances.set("openrouter", new OpenRouterProvider());
 providerInstances.set("groq", new GroqProvider());
 providerInstances.set("cerebras", new CerebrasProvider());
-providerInstances.set("mistral", new MistralProvider());
-providerInstances.set("codestral", new CodestralProvider());
 providerInstances.set("google-ai", new GoogleAIProvider());
-providerInstances.set("huggingface", new HuggingFaceProvider());
-providerInstances.set("nvidia-nim", new NvidiaNimProvider());
-providerInstances.set("cloudflare", new CloudflareProvider());
-providerInstances.set("cohere", new CohereProvider());
-providerInstances.set("vertex-ai", new VertexAIProvider());
-providerInstances.set("github-models", new GitHubModelsProvider());
 
 export class ProviderFactory {
   static getProviderInstance(name: Provider): BaseProvider {
