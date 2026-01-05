@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { dbGet, dbPost } from "../utils/db-client.js";
+import { dbGet, dbPost, dbDelete } from "../utils/db-client.js";
 import {
   chatCompletion,
   chatCompletionStream,
@@ -373,6 +373,145 @@ chatRoutes.get("/messages/:messageId", async (req, res) => {
         return res.status(404).json({ error: "Message not found" });
       }
       throw dbError;
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /chat/regenerate/:messageId - Regenerate assistant response
+chatRoutes.post("/regenerate/:messageId", async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { stream = false } = req.body;
+
+    // Lấy assistant message
+    const assistantMessage = await dbGet<any>(
+      `/chat-messages/${messageId}`
+    ).catch(() => null);
+
+    if (!assistantMessage || assistantMessage.role !== "assistant") {
+      return res.status(400).json({ error: "Invalid message" });
+    }
+
+    // Lấy session
+    const sessions = await dbGet<Session[]>("/chat-sessions");
+    const session = sessions.find(
+      (s: Session) => s.id === assistantMessage.session_id
+    );
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
+    // Lấy messages và xóa từ assistant message trở đi
+    const allMessages = await dbGet<any[]>(
+      `/chat-messages/session/${session.id}`
+    );
+    const assistantIndex = allMessages.findIndex(
+      (m) => m.id === parseInt(messageId)
+    );
+
+    for (let i = assistantIndex; i < allMessages.length; i++) {
+      await dbDelete(`/chat-messages/${allMessages[i].id}`).catch(() => {});
+    }
+
+    // Build history
+    const historyMessages = allMessages.slice(0, assistantIndex).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const provider = assistantMessage.provider_name || "google-ai";
+    const model = assistantMessage.model_name || "gemini-3-flash-preview";
+
+    // Gọi LLM
+    if (stream) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const controller = streamManager.register(
+        session.session_key,
+        session.id,
+        res,
+        true,
+        provider,
+        model
+      );
+
+      try {
+        await chatCompletionStream(
+          { provider, model, messages: historyMessages },
+          res,
+          controller.signal,
+          (content) => streamManager.appendContent(session.session_key, content)
+        );
+
+        const fullContent = streamManager.getStreamedContent(
+          session.session_key
+        );
+        if (fullContent) {
+          await saveAssistantMessage(session.id, fullContent, provider, model);
+        }
+      } catch (error: any) {
+        if (error.name === "AbortError") {
+          const partialContent = streamManager.getStreamedContent(
+            session.session_key
+          );
+          if (partialContent) {
+            await saveAssistantMessage(
+              session.id,
+              partialContent + " [cancelled]",
+              provider,
+              model
+            );
+          }
+          res.write(`data: {"cancelled": true}\n\n`);
+        } else {
+          throw error;
+        }
+      } finally {
+        streamManager.unregister(session.session_key);
+      }
+
+      res.end();
+    } else {
+      const controller = streamManager.register(
+        session.session_key,
+        session.id,
+        undefined,
+        false,
+        provider,
+        model
+      );
+
+      try {
+        const response = await chatCompletion(
+          { provider, model, messages: historyMessages },
+          controller.signal
+        );
+        const assistantContent = response.choices?.[0]?.message?.content;
+
+        if (assistantContent) {
+          await saveAssistantMessage(
+            session.id,
+            assistantContent,
+            provider,
+            model
+          );
+        }
+
+        res.json({ ...response, session_key: session.session_key });
+      } catch (error: any) {
+        if (error.name === "AbortError") {
+          return res
+            .status(499)
+            .json({ error: "Request cancelled", cancelled: true });
+        }
+        throw error;
+      } finally {
+        streamManager.unregister(session.session_key);
+      }
     }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
