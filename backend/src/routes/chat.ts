@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { dbGet, dbPost } from "../utils/db-client.js";
-import { chatCompletion } from "../utils/gateway-client.js";
+import {
+  chatCompletion,
+  chatCompletionStream,
+} from "../utils/gateway-client.js";
 
 export const chatRoutes = Router();
 
@@ -38,6 +41,7 @@ chatRoutes.post("/", async (req, res) => {
       system_prompt,
       temperature,
       max_tokens,
+      stream = false,
     } = req.body;
 
     // Hỗ trợ cả 2 format: message (single) hoặc messages (array)
@@ -90,18 +94,41 @@ chatRoutes.post("/", async (req, res) => {
     // Build messages array for LLM
     const llmMessages: { role: string; content: string }[] = [];
 
-    // 1. System prompt (nếu có)
+    // 1. System prompt (nếu có) - PHẢI ĐẶT ĐẦU TIÊN
     if (system_prompt) {
       llmMessages.push({ role: "system", content: system_prompt });
     }
 
-    // 2. History từ DB
-    llmMessages.push(...historyMessages);
+    // 2. History từ DB (không bao gồm system messages cũ)
+    llmMessages.push(...historyMessages.filter((m) => m.role !== "system"));
 
     // 3. User message mới
     llmMessages.push({ role: "user", content: userMessage });
 
-    // Call LLM Gateway với full history
+    // Handle streaming
+    if (stream) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      await chatCompletionStream(
+        {
+          provider,
+          model,
+          messages: llmMessages,
+          temperature,
+          max_tokens,
+        },
+        res
+      );
+
+      res.end();
+      return;
+    }
+
+    // Non-streaming response
+
+    // Non-streaming response
     const response = await chatCompletion({
       provider,
       model,

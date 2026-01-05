@@ -1,4 +1,5 @@
 import { config } from "../config/index.js";
+import { Response } from "express";
 
 const BASE_URL = config.services.gateway;
 
@@ -30,6 +31,52 @@ export async function chatCompletion(data: {
     throw new Error(error.error?.message || "Gateway request failed");
   }
   return res.json() as Promise<ChatResponse>;
+}
+
+export async function chatCompletionStream(
+  data: {
+    provider: string;
+    model: string;
+    messages: { role: string; content: string }[];
+    temperature?: number;
+    max_tokens?: number;
+  },
+  res: Response
+): Promise<void> {
+  const gatewayRes = await fetch(`${BASE_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...data, stream: true }),
+  });
+
+  if (!gatewayRes.ok) {
+    const error = (await gatewayRes
+      .json()
+      .catch(() => ({ error: gatewayRes.statusText }))) as {
+      error?: { message?: string };
+    };
+    throw new Error(error.error?.message || "Gateway request failed");
+  }
+
+  // Pipe stream từ gateway về client
+  if (!gatewayRes.body) {
+    throw new Error("No response body");
+  }
+
+  const reader = gatewayRes.body.getReader();
+  const decoder = new TextDecoder();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      res.write(chunk);
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 export async function getModels(provider?: string) {
