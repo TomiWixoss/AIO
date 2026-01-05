@@ -27,7 +27,7 @@ modelsRouter.get("/providers", (_req, res) => {
 modelsRouter.get("/:provider", async (req, res, next) => {
   try {
     const provider = req.params.provider as Provider;
-    const providerInstance = ProviderFactory.getProvider(provider);
+    const providerInstance = ProviderFactory.getProviderInstance(provider);
     const models = await providerInstance.listModels();
 
     res.json({

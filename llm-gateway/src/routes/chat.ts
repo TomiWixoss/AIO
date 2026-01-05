@@ -14,7 +14,6 @@ chatRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = req.body as ChatCompletionRequest;
-      const provider = ProviderFactory.getProvider(body.provider);
 
       logger.info("Chat completion request", {
         provider: body.provider,
@@ -27,9 +26,11 @@ chatRouter.post(
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
 
-        await withRetry(() => provider.streamChatCompletion(body, res));
+        await withRetry(() => ProviderFactory.streamChatCompletion(body, res));
       } else {
-        const response = await withRetry(() => provider.chatCompletion(body));
+        const { response } = await withRetry(() =>
+          ProviderFactory.chatCompletion(body)
+        );
         res.json(response);
       }
     } catch (error) {

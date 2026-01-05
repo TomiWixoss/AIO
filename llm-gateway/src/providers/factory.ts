@@ -1,119 +1,149 @@
-import { Provider, ModelInfo } from "../types/index.js";
+import { Response } from "express";
+import {
+  Provider,
+  ModelInfo,
+  ChatCompletionRequest,
+  ChatCompletionResponse,
+} from "../types/index.js";
 import { BaseProvider } from "./base.js";
 import { OpenRouterProvider } from "./openrouter.js";
-import { GoogleAIProvider } from "./google-ai.js";
 import { GroqProvider } from "./groq.js";
-import { MistralProvider } from "./mistral.js";
-import { CodestralProvider } from "./codestral.js";
-import { CerebrasProvider } from "./cerebras.js";
-import { CohereProvider } from "./cohere.js";
-import { HuggingFaceProvider } from "./huggingface.js";
-import { NvidiaNimProvider } from "./nvidia-nim.js";
-import { GitHubModelsProvider } from "./github-models.js";
-import { CloudflareProvider } from "./cloudflare.js";
-import { VertexAIProvider } from "./vertex-ai.js";
 import { GatewayError } from "../middleware/errorHandler.js";
-import { config } from "../config/index.js";
+import {
+  getProviderByName,
+  getActiveKey,
+  incrementKeyUsage,
+  markKeyError,
+  decryptApiKey,
+} from "../services/key-manager.js";
 import { logger } from "../utils/logger.js";
 
-type ProviderConstructor = new () => BaseProvider;
-
-const providerRegistry: Record<
-  Provider,
-  { constructor: ProviderConstructor; configKey: keyof typeof config.providers }
-> = {
-  openrouter: { constructor: OpenRouterProvider, configKey: "openrouter" },
-  "google-ai": { constructor: GoogleAIProvider, configKey: "googleAi" },
-  groq: { constructor: GroqProvider, configKey: "groq" },
-  mistral: { constructor: MistralProvider, configKey: "mistral" },
-  codestral: { constructor: CodestralProvider, configKey: "codestral" },
-  cerebras: { constructor: CerebrasProvider, configKey: "cerebras" },
-  cohere: { constructor: CohereProvider, configKey: "cohere" },
-  huggingface: { constructor: HuggingFaceProvider, configKey: "huggingface" },
-  "nvidia-nim": { constructor: NvidiaNimProvider, configKey: "nvidiaNim" },
-  "github-models": {
-    constructor: GitHubModelsProvider,
-    configKey: "githubModels",
-  },
-  cloudflare: {
-    constructor: CloudflareProvider,
-    configKey: "cloudflareAccountId",
-  },
-  "vertex-ai": { constructor: VertexAIProvider, configKey: "vertexProjectId" },
-};
+// Provider instances (stateless, no API key stored)
+const providerInstances = new Map<Provider, BaseProvider>();
+providerInstances.set("openrouter", new OpenRouterProvider());
+providerInstances.set("groq", new GroqProvider());
+// TODO: Add other providers
 
 export class ProviderFactory {
-  private static providers: Map<Provider, BaseProvider> = new Map();
-  private static modelsCache: ModelInfo[] | null = null;
-
-  static {
-    // Initialize only providers with configured API keys
-    for (const [name, { constructor, configKey }] of Object.entries(
-      providerRegistry
-    )) {
-      const apiKey = config.providers[configKey];
-      if (apiKey) {
-        try {
-          this.providers.set(name as Provider, new constructor());
-          logger.info(`Provider initialized: ${name}`);
-        } catch (error: any) {
-          logger.warn(
-            `Failed to initialize provider ${name}: ${error.message}`
-          );
-        }
-      }
-    }
-  }
-
-  static getProvider(name: Provider): BaseProvider {
-    const provider = this.providers.get(name);
+  static getProviderInstance(name: Provider): BaseProvider {
+    const provider = providerInstances.get(name);
     if (!provider) {
-      throw new GatewayError(
-        400,
-        `Provider not available: ${name}. Check API key configuration.`
-      );
+      throw new GatewayError(400, `Provider not implemented: ${name}`);
     }
     return provider;
   }
 
-  static getAllProviders(): Provider[] {
-    return Array.from(this.providers.keys());
-  }
+  static async chatCompletion(
+    request: ChatCompletionRequest
+  ): Promise<{ response: ChatCompletionResponse; keyId: number }> {
+    const providerInstance = this.getProviderInstance(request.provider);
 
-  static async getAllModels(): Promise<ModelInfo[]> {
-    if (this.modelsCache) return this.modelsCache;
-
-    const models: ModelInfo[] = [];
-    const promises = Array.from(this.providers.entries()).map(
-      async ([name, provider]) => {
-        try {
-          const providerModels = await provider.listModels();
-          return providerModels;
-        } catch (error: any) {
-          logger.warn(`Failed to fetch models from ${name}: ${error.message}`);
-          return [];
-        }
-      }
-    );
-
-    const results = await Promise.all(promises);
-    for (const result of results) {
-      models.push(...result);
+    // Get provider from DB
+    const provider = await getProviderByName(request.provider);
+    if (!provider) {
+      throw new GatewayError(
+        400,
+        `Provider not found or inactive: ${request.provider}`
+      );
     }
 
-    this.modelsCache = models;
-    // Clear cache after 5 minutes
-    setTimeout(() => {
-      this.modelsCache = null;
-    }, 300000);
+    // Get active API key
+    const key = await getActiveKey(provider.id);
+    if (!key) {
+      throw new GatewayError(
+        503,
+        `No active API key for provider: ${request.provider}`
+      );
+    }
 
-    return models;
+    const apiKey = await decryptApiKey(key.api_key_encrypted);
+
+    try {
+      const response = await providerInstance.chatCompletion(request, apiKey);
+      await incrementKeyUsage(key.id);
+      return { response, keyId: key.id };
+    } catch (error: any) {
+      // Check if rate limit error
+      const isRateLimit =
+        error.message?.includes("rate") ||
+        error.message?.includes("limit") ||
+        error.message?.includes("429");
+      await markKeyError(key.id, error.message, isRateLimit);
+
+      // Try next key if available
+      if (isRateLimit) {
+        logger.warn(`Key ${key.id} hit rate limit, trying next key`);
+        const nextKey = await getActiveKey(provider.id);
+        if (nextKey && nextKey.id !== key.id) {
+          const nextApiKey = await decryptApiKey(nextKey.api_key_encrypted);
+          const response = await providerInstance.chatCompletion(
+            request,
+            nextApiKey
+          );
+          await incrementKeyUsage(nextKey.id);
+          return { response, keyId: nextKey.id };
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  static async streamChatCompletion(
+    request: ChatCompletionRequest,
+    res: Response
+  ): Promise<{ keyId: number }> {
+    const providerInstance = this.getProviderInstance(request.provider);
+
+    const provider = await getProviderByName(request.provider);
+    if (!provider) {
+      throw new GatewayError(
+        400,
+        `Provider not found or inactive: ${request.provider}`
+      );
+    }
+
+    const key = await getActiveKey(provider.id);
+    if (!key) {
+      throw new GatewayError(
+        503,
+        `No active API key for provider: ${request.provider}`
+      );
+    }
+
+    const apiKey = await decryptApiKey(key.api_key_encrypted);
+
+    try {
+      await providerInstance.streamChatCompletion(request, res, apiKey);
+      await incrementKeyUsage(key.id);
+      return { keyId: key.id };
+    } catch (error: any) {
+      await markKeyError(key.id, error.message);
+      throw error;
+    }
+  }
+
+  static getAllProviders(): Provider[] {
+    return Array.from(providerInstances.keys());
   }
 
   static getAvailableProviders(): { name: Provider; available: boolean }[] {
-    return Object.keys(providerRegistry).map((name) => ({
-      name: name as Provider,
-      available: this.providers.has(name as Provider),
+    return Array.from(providerInstances.keys()).map((name) => ({
+      name,
+      available: true, // Will be checked against DB at runtime
     }));
+  }
+
+  static async getAllModels(): Promise<ModelInfo[]> {
+    const models: ModelInfo[] = [];
+    for (const provider of providerInstances.values()) {
+      try {
+        const providerModels = await provider.listModels();
+        models.push(...providerModels);
+      } catch (error) {
+        logger.warn(`Failed to get models from ${provider.name}`);
+      }
+    }
+    return models;
   }
 }

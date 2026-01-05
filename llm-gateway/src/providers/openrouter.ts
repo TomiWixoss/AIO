@@ -12,15 +12,9 @@ import { v4 as uuidv4 } from "uuid";
 
 export class OpenRouterProvider extends BaseProvider {
   readonly name: Provider = "openrouter";
-  private client: OpenAI;
 
-  constructor() {
-    super();
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      throw new Error("OPENROUTER_API_KEY is required");
-    }
-    this.client = new OpenAI({
+  private createClient(apiKey: string): OpenAI {
+    return new OpenAI({
       baseURL: "https://openrouter.ai/api/v1",
       apiKey,
       defaultHeaders: {
@@ -31,10 +25,12 @@ export class OpenRouterProvider extends BaseProvider {
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const response = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -69,10 +65,12 @@ export class OpenRouterProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const stream = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const stream = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -104,7 +102,6 @@ export class OpenRouterProvider extends BaseProvider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    // OpenRouter free models
     return [
       {
         id: "meta-llama/llama-3.2-3b-instruct:free",
@@ -125,11 +122,6 @@ export class OpenRouterProvider extends BaseProvider {
         id: "mistralai/mistral-7b-instruct:free",
         provider: this.name,
         name: "Mistral 7B Instruct (Free)",
-      },
-      {
-        id: "qwen/qwen-2-7b-instruct:free",
-        provider: this.name,
-        name: "Qwen 2 7B Instruct (Free)",
       },
     ];
   }

@@ -12,22 +12,18 @@ import { v4 as uuidv4 } from "uuid";
 
 export class GroqProvider extends BaseProvider {
   readonly name: Provider = "groq";
-  private client: Groq;
 
-  constructor() {
-    super();
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      throw new Error("GROQ_API_KEY is required");
-    }
-    this.client = new Groq({ apiKey });
+  private createClient(apiKey: string): Groq {
+    return new Groq({ apiKey });
   }
 
   async chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
-      const response = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const response = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -62,10 +58,12 @@ export class GroqProvider extends BaseProvider {
 
   async streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void> {
     try {
-      const stream = await this.client.chat.completions.create({
+      const client = this.createClient(apiKey);
+      const stream = await client.chat.completions.create({
         model: request.model,
         messages: request.messages,
         temperature: request.temperature,
@@ -108,12 +106,6 @@ export class GroqProvider extends BaseProvider {
         id: "llama-3.1-8b-instant",
         provider: this.name,
         name: "Llama 3.1 8B Instant",
-        context_length: 128000,
-      },
-      {
-        id: "llama-3.2-3b-preview",
-        provider: this.name,
-        name: "Llama 3.2 3B Preview",
         context_length: 128000,
       },
       {

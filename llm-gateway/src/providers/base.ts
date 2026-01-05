@@ -10,12 +10,14 @@ export abstract class BaseProvider {
   abstract readonly name: Provider;
 
   abstract chatCompletion(
-    request: ChatCompletionRequest
+    request: ChatCompletionRequest,
+    apiKey: string
   ): Promise<ChatCompletionResponse>;
 
   abstract streamChatCompletion(
     request: ChatCompletionRequest,
-    res: Response
+    res: Response,
+    apiKey: string
   ): Promise<void>;
 
   abstract listModels(): Promise<ModelInfo[]>;
