@@ -1,0 +1,48 @@
+{
+  "name": "llm-gateway",
+  "version": "1.0.0",
+  "description": "Gateway tích hợp và chuẩn hóa giao diện tương tác cho các Mô hình ngôn ngữ lớn đa nền tảng",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "llm",
+    "gateway",
+    "ai",
+    "openrouter",
+    "gemini",
+    "groq",
+    "mistral"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "@mistralai/mistralai": "^1.11.0",
+    "cohere-ai": "^7.20.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "groq-sdk": "^0.37.0",
+    "openai": "^6.15.0",
+    "uuid": "^13.0.0",
+    "winston": "^3.19.0",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.3",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "eslint": "^9.39.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  }
+}
