@@ -16,22 +16,30 @@ export class GoogleAIProvider extends BaseProvider {
     return new GoogleGenAI({ apiKey });
   }
 
+  // Convert messages sang format Google AI
+  // Google AI dùng role: "user" | "model", không có "assistant"
+  private buildContents(messages: ChatCompletionRequest["messages"]) {
+    return messages
+      .filter((m) => m.role !== "system")
+      .map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+  }
+
+  // Lấy system instruction từ messages
+  private getSystemInstruction(messages: ChatCompletionRequest["messages"]) {
+    return messages.find((m) => m.role === "system")?.content;
+  }
+
   async chatCompletion(
     request: ChatCompletionRequest,
     apiKey: string
   ): Promise<ChatCompletionResponse> {
     try {
       const client = this.createClient(apiKey);
-      const contents = request.messages
-        .filter((m) => m.role !== "system")
-        .map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        }));
-
-      const systemInstruction = request.messages.find(
-        (m) => m.role === "system"
-      )?.content;
+      const contents = this.buildContents(request.messages);
+      const systemInstruction = this.getSystemInstruction(request.messages);
 
       const response = await client.models.generateContent({
         model: request.model,
@@ -77,16 +85,8 @@ export class GoogleAIProvider extends BaseProvider {
   ): Promise<void> {
     try {
       const client = this.createClient(apiKey);
-      const contents = request.messages
-        .filter((m) => m.role !== "system")
-        .map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        }));
-
-      const systemInstruction = request.messages.find(
-        (m) => m.role === "system"
-      )?.content;
+      const contents = this.buildContents(request.messages);
+      const systemInstruction = this.getSystemInstruction(request.messages);
 
       const stream = await client.models.generateContentStream({
         model: request.model,
