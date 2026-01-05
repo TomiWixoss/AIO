@@ -18,8 +18,8 @@ const googleModels = [
     context_length: 1048576,
   },
   {
-    model_id: "gemini-3-flash",
-    display_name: "Gemini 3 Flash",
+    model_id: "gemini-3-flash-preview",
+    display_name: "Gemini 3 Flash Preview",
     context_length: 1048576,
   },
   {
@@ -28,29 +28,24 @@ const googleModels = [
     context_length: 1048576,
   },
   {
-    model_id: "gemma-3-1b",
+    model_id: "gemma-3-1b-it",
     display_name: "Gemma 3 1B (IT)",
     context_length: 32768,
   },
   {
-    model_id: "gemma-3-4b",
+    model_id: "gemma-3-4b-it",
     display_name: "Gemma 3 4B (IT)",
     context_length: 131072,
   },
   {
-    model_id: "gemma-3-12b",
+    model_id: "gemma-3-12b-it",
     display_name: "Gemma 3 12B (IT)",
     context_length: 131072,
   },
   {
-    model_id: "gemma-3-27b",
+    model_id: "gemma-3-27b-it",
     display_name: "Gemma 3 27B (IT)",
     context_length: 131072,
-  },
-  {
-    model_id: "shield-gemma-2",
-    display_name: "Shield Gemma 2",
-    context_length: 8192,
   },
 ];
 
