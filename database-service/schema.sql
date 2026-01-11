@@ -79,7 +79,6 @@ CREATE TABLE models (
     provider_id INT NOT NULL,
     model_id VARCHAR(100) NOT NULL,
     display_name VARCHAR(100) NOT NULL,
-    context_length INT,
     is_active BOOLEAN DEFAULT TRUE,
     is_fallback BOOLEAN DEFAULT FALSE,
     priority INT DEFAULT 0,                        -- Ưu tiên trong provider (cao hơn = ưu tiên hơn)

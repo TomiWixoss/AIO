@@ -15,7 +15,6 @@ import {
 export interface ModelFormData {
   model_id: string;
   display_name: string;
-  context_length: number;
   is_active: boolean;
   priority: number;
 }
@@ -23,14 +22,12 @@ export interface ModelFormData {
 export interface ApiKeyFormData {
   name: string;
   credentials: string;
-  priority: number;
   daily_limit: number;
 }
 
 const initialModelForm: ModelFormData = {
   model_id: "",
   display_name: "",
-  context_length: 128000,
   is_active: true,
   priority: 0,
 };
@@ -38,7 +35,6 @@ const initialModelForm: ModelFormData = {
 const initialKeyForm: ApiKeyFormData = {
   name: "",
   credentials: "",
-  priority: 1,
   daily_limit: 0,
 };
 
@@ -166,7 +162,6 @@ export function useProviderDetail(providerId: number) {
       setModelForm({
         model_id: model.model_id,
         display_name: model.display_name,
-        context_length: model.context_length || 128000,
         is_active: model.is_active,
         priority: model.priority || 0,
       });

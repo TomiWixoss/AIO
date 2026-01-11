@@ -317,7 +317,6 @@ export default function ProviderDetailPage({
                       <TableRow>
                         <TableHead>Model ID</TableHead>
                         <TableHead>Tên hiển thị</TableHead>
-                        <TableHead className="text-right">Context</TableHead>
                         <TableHead className="text-center">Ưu tiên</TableHead>
                         <TableHead>Trạng thái</TableHead>
                         <TableHead className="text-right">Thao tác</TableHead>
@@ -335,9 +334,6 @@ export default function ProviderDetailPage({
                             </TableCell>
                             <TableCell className="font-medium">
                               {model.display_name}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {model.context_length?.toLocaleString() || "N/A"}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center justify-center gap-0.5">
@@ -439,31 +435,19 @@ export default function ProviderDetailPage({
                 placeholder="Gemini 2.0 Flash"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Context Length</Label>
-                <Input
-                  type="number"
-                  value={modelForm.context_length}
-                  onChange={(e) =>
-                    setModelForm({
-                      context_length: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="128000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Ưu tiên (Auto mode)</Label>
-                <Input
-                  type="number"
-                  value={modelForm.priority}
-                  onChange={(e) =>
-                    setModelForm({ priority: parseInt(e.target.value) || 0 })
-                  }
-                  placeholder="0"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Ưu tiên (Auto mode)</Label>
+              <Input
+                type="number"
+                value={modelForm.priority}
+                onChange={(e) =>
+                  setModelForm({ priority: parseInt(e.target.value) || 0 })
+                }
+                placeholder="0"
+              />
+              <p className="text-xs text-muted-foreground">
+                Số cao hơn = ưu tiên cao hơn trong Auto mode
+              </p>
             </div>
           </div>
           <DialogFooter>

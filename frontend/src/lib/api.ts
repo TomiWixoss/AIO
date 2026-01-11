@@ -42,7 +42,6 @@ export interface Model {
   provider_id: number;
   model_id: string;
   display_name: string;
-  context_length: number | null;
   is_active: boolean;
   is_fallback?: boolean;
   priority?: number;

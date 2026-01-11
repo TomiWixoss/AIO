@@ -9,7 +9,6 @@ export interface ModelFormData {
   provider_id: number;
   model_id: string;
   display_name: string;
-  context_length: number;
   is_active: boolean;
   priority: number;
 }
@@ -18,7 +17,6 @@ const initialFormData: ModelFormData = {
   provider_id: 0,
   model_id: "",
   display_name: "",
-  context_length: 0,
   is_active: true,
   priority: 0,
 };
@@ -79,7 +77,6 @@ export function useModels() {
         provider_id: model.provider_id,
         model_id: model.model_id,
         display_name: model.display_name,
-        context_length: model.context_length || 0,
         is_active: model.is_active,
         priority: model.priority || 0,
       });

@@ -112,7 +112,6 @@ modelRoutes.post(
       provider_id,
       model_id,
       display_name,
-      context_length,
       is_active,
       is_fallback,
       priority,
@@ -121,12 +120,11 @@ modelRoutes.post(
       throw BadRequest("provider_id, model_id, display_name are required");
     }
     const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO models (provider_id, model_id, display_name, context_length, is_active, is_fallback, priority) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO models (provider_id, model_id, display_name, is_active, is_fallback, priority) VALUES (?, ?, ?, ?, ?, ?)",
       [
         provider_id,
         model_id,
         display_name,
-        context_length,
         is_active ?? true,
         is_fallback ?? false,
         priority ?? 0,
@@ -140,18 +138,10 @@ modelRoutes.post(
 modelRoutes.put(
   "/:id",
   asyncHandler(async (req: any, res: any) => {
-    const { display_name, context_length, is_active, is_fallback, priority } =
-      req.body;
+    const { display_name, is_active, is_fallback, priority } = req.body;
     const [result] = await pool.query<ResultSetHeader>(
-      "UPDATE models SET display_name = COALESCE(?, display_name), context_length = COALESCE(?, context_length), is_active = COALESCE(?, is_active), is_fallback = COALESCE(?, is_fallback), priority = COALESCE(?, priority) WHERE id = ?",
-      [
-        display_name,
-        context_length,
-        is_active,
-        is_fallback,
-        priority,
-        req.params.id,
-      ]
+      "UPDATE models SET display_name = COALESCE(?, display_name), is_active = COALESCE(?, is_active), is_fallback = COALESCE(?, is_fallback), priority = COALESCE(?, priority) WHERE id = ?",
+      [display_name, is_active, is_fallback, priority, req.params.id]
     );
     if (result.affectedRows === 0) throw NotFound("Model");
     return ok(res, { id: parseInt(req.params.id) }, "Updated successfully");
