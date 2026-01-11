@@ -19,7 +19,7 @@ export interface ProviderModelFormData {
   priority: number;
 }
 
-export interface ApiKeyFormData {
+export interface ProviderApiKeyFormData {
   name: string;
   credentials: string;
   daily_limit: number;
@@ -32,7 +32,7 @@ const initialModelForm: ProviderModelFormData = {
   priority: 0,
 };
 
-const initialKeyForm: ApiKeyFormData = {
+const initialKeyForm: ProviderApiKeyFormData = {
   name: "",
   credentials: "",
   daily_limit: 0,
@@ -49,7 +49,8 @@ export function useProviderDetail(providerId: number) {
   // Form states
   const [modelForm, setModelForm] =
     useState<ProviderModelFormData>(initialModelForm);
-  const [keyForm, setKeyForm] = useState<ApiKeyFormData>(initialKeyForm);
+  const [keyForm, setKeyForm] =
+    useState<ProviderApiKeyFormData>(initialKeyForm);
 
   // Fetch provider detail
   const { data: providerData, isLoading: isLoadingProvider } = useQuery({
@@ -255,7 +256,7 @@ export function useProviderDetail(providerId: number) {
     isKeyDialogOpen,
     setIsKeyDialogOpen,
     keyForm,
-    setKeyForm: (updates: Partial<ApiKeyFormData>) =>
+    setKeyForm: (updates: Partial<ProviderApiKeyFormData>) =>
       setKeyForm((prev) => ({ ...prev, ...updates })),
     openKeyDialog,
     closeKeyDialog,
