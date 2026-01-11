@@ -10,6 +10,12 @@ import {
   Bot,
   Settings,
   ChevronRight,
+  Sparkles,
+  Zap,
+  Brain,
+  Globe,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -30,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -41,11 +48,19 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProviders } from "@/hooks";
 
-const PROVIDER_ICONS: Record<string, string> = {
-  "google-ai": "🔷",
-  groq: "⚡",
-  cerebras: "🧠",
-  openrouter: "🌐",
+const ProviderIcon = ({ providerId }: { providerId: string }) => {
+  switch (providerId) {
+    case "google-ai":
+      return <Sparkles className="h-5 w-5 text-blue-500" />;
+    case "groq":
+      return <Zap className="h-5 w-5 text-orange-500" />;
+    case "cerebras":
+      return <Brain className="h-5 w-5 text-purple-500" />;
+    case "openrouter":
+      return <Globe className="h-5 w-5 text-green-500" />;
+    default:
+      return <Bot className="h-5 w-5 text-muted-foreground" />;
+  }
 };
 
 export default function ProvidersPage() {
@@ -57,9 +72,12 @@ export default function ProvidersPage() {
     setIsDialogOpen,
     selectedProviderId,
     setSelectedProviderId,
+    priority,
+    setPriority,
     availableProviders,
     handleCreate,
     toggleActive,
+    updatePriority,
     getProviderDisplayName,
     isSubmitting,
     handleDelete,
@@ -68,6 +86,11 @@ export default function ProvidersPage() {
   const handleProviderClick = (providerId: number) => {
     router.push(`/admin/providers/${providerId}`);
   };
+
+  // Sort by priority DESC
+  const sortedProviders = [...providers].sort(
+    (a, b) => (b.priority || 0) - (a.priority || 0)
+  );
 
   return (
     <div className="flex flex-col h-screen">
@@ -110,7 +133,7 @@ export default function ProvidersPage() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {providers.map((provider) => (
+            {sortedProviders.map((provider) => (
               <Card
                 key={provider.id}
                 className="cursor-pointer hover:border-primary/50 transition-colors group"
@@ -119,9 +142,9 @@ export default function ProvidersPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">
-                        {PROVIDER_ICONS[provider.provider_id] || "🤖"}
-                      </span>
+                      <div className="p-2 rounded-lg bg-muted">
+                        <ProviderIcon providerId={provider.provider_id} />
+                      </div>
                       <div>
                         <CardTitle className="text-lg">
                           {getProviderDisplayName(provider.provider_id)}
@@ -159,11 +182,48 @@ export default function ProvidersPage() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <Badge
-                      variant={provider.is_active ? "default" : "secondary"}
-                    >
-                      {provider.is_active ? "Hoạt động" : "Tắt"}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={provider.is_active ? "default" : "secondary"}
+                      >
+                        {provider.is_active ? "Hoạt động" : "Tắt"}
+                      </Badge>
+                      {/* Priority controls */}
+                      <div
+                        className="flex items-center gap-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() =>
+                            updatePriority(
+                              provider,
+                              (provider.priority || 0) + 10
+                            )
+                          }
+                        >
+                          <ArrowUp className="h-3 w-3" />
+                        </Button>
+                        <span className="w-6 text-center font-mono text-xs">
+                          {provider.priority || 0}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() =>
+                            updatePriority(
+                              provider,
+                              Math.max(0, (provider.priority || 0) - 10)
+                            )
+                          }
+                        >
+                          <ArrowDown className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
@@ -217,7 +277,7 @@ export default function ProvidersPage() {
                   {availableProviders.map((type) => (
                     <SelectItem key={type.id} value={type.id}>
                       <div className="flex items-center gap-2">
-                        <span>{PROVIDER_ICONS[type.id] || "🤖"}</span>
+                        <ProviderIcon providerId={type.id} />
                         <span>{type.name}</span>
                         <span className="text-muted-foreground">
                           ({type.id})
@@ -232,6 +292,18 @@ export default function ProvidersPage() {
                   Tất cả providers đã được thêm
                 </p>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label>Độ ưu tiên (Priority)</Label>
+              <Input
+                type="number"
+                value={priority}
+                onChange={(e) => setPriority(parseInt(e.target.value) || 0)}
+                placeholder="0"
+              />
+              <p className="text-xs text-muted-foreground">
+                Số cao hơn = ưu tiên cao hơn trong Auto mode
+              </p>
             </div>
           </div>
           <DialogFooter>

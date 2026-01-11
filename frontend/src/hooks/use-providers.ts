@@ -16,6 +16,7 @@ export function useProviders() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProviderId, setSelectedProviderId] = useState("");
+  const [priority, setPriority] = useState(0);
 
   const { data, isLoading } = useQuery({
     queryKey: ["providers"],
@@ -25,12 +26,14 @@ export function useProviders() {
   const providers = data?.data?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: (data: { provider_id: string }) => providersApi.create(data),
+    mutationFn: (data: { provider_id: string; priority: number }) =>
+      providersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["providers"] });
       toast.success("Tạo provider thành công");
       setIsDialogOpen(false);
       setSelectedProviderId("");
+      setPriority(0);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || "Lỗi tạo provider");
@@ -61,13 +64,20 @@ export function useProviders() {
       toast.error("Vui lòng chọn loại provider");
       return;
     }
-    createMutation.mutate({ provider_id: selectedProviderId });
+    createMutation.mutate({ provider_id: selectedProviderId, priority });
   };
 
   const toggleActive = (provider: Provider) => {
     updateMutation.mutate({
       id: provider.id,
       data: { is_active: !provider.is_active },
+    });
+  };
+
+  const updatePriority = (provider: Provider, newPriority: number) => {
+    updateMutation.mutate({
+      id: provider.id,
+      data: { priority: newPriority },
     });
   };
 
@@ -87,9 +97,12 @@ export function useProviders() {
     setIsDialogOpen,
     selectedProviderId,
     setSelectedProviderId,
+    priority,
+    setPriority,
     availableProviders,
     handleCreate,
     toggleActive,
+    updatePriority,
     getProviderDisplayName,
     isSubmitting: createMutation.isPending,
     handleDelete: (id: number) => {
