@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Send, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +60,6 @@ export default function ToolEditorPage() {
   const [queryParams, setQueryParams] = useState<KeyValueRow[]>([emptyKV()]);
   const [headers, setHeaders] = useState<KeyValueRow[]>([emptyKV()]);
   const [body, setBody] = useState("");
-  const [responseMapping, setResponseMapping] = useState("");
 
   const [testParams, setTestParams] = useState<Record<string, string>>({});
   const [testResult, setTestResult] = useState<any>(null);
@@ -83,11 +82,6 @@ export default function ToolEditorPage() {
           setHeaders(parseKV(t.headers_template));
           setBody(
             t.body_template ? JSON.stringify(t.body_template, null, 2) : ""
-          );
-          setResponseMapping(
-            t.response_mapping
-              ? JSON.stringify(t.response_mapping, null, 2)
-              : ""
           );
           setLoading(false);
         })
@@ -115,7 +109,6 @@ export default function ToolEditorPage() {
         query_params_template: kvToJson(queryParams),
         headers_template: kvToJson(headers),
         body_template: body ? JSON.parse(body) : null,
-        response_mapping: responseMapping ? JSON.parse(responseMapping) : null,
       };
       if (toolId) {
         await toolsApi.update(toolId, data);
@@ -238,20 +231,6 @@ export default function ToolEditorPage() {
                 placeholder="https://api.example.com/endpoint/{{param}}"
                 className="flex-1 font-mono"
               />
-              <Button
-                onClick={handleTest}
-                disabled={testing || !toolId}
-                className="px-6"
-              >
-                {testing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send
-                  </>
-                )}
-              </Button>
             </div>
           </div>
 
@@ -283,7 +262,6 @@ export default function ToolEditorPage() {
                 )}
               </TabsTrigger>
               <TabsTrigger value="body">Body</TabsTrigger>
-              <TabsTrigger value="mapping">Response Mapping</TabsTrigger>
             </TabsList>
 
             <TabsContent value="params" className="mt-4">
@@ -312,17 +290,6 @@ export default function ToolEditorPage() {
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={'{\n  "name": "{{name}}"\n}'}
                 className="font-mono text-sm min-h-[200px]"
-              />
-            </TabsContent>
-            <TabsContent value="mapping" className="mt-4">
-              <p className="text-sm text-muted-foreground mb-3">
-                Response mapping (JSONPath)
-              </p>
-              <Textarea
-                value={responseMapping}
-                onChange={(e) => setResponseMapping(e.target.value)}
-                placeholder={'{\n  "status": "$.data.status"\n}'}
-                className="font-mono text-sm min-h-[150px]"
               />
             </TabsContent>
           </Tabs>

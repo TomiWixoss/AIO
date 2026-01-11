@@ -116,11 +116,7 @@ export function ResponseViewer({
             disabled={testing || !canTest}
             className="mt-3"
           >
-            {testing ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Send className="h-4 w-4 mr-2" />
-            )}
+            <Send className="h-4 w-4 mr-2" />
             Test API
           </Button>
         </div>
