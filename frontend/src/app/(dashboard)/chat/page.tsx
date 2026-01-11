@@ -39,6 +39,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedChatbot, setSelectedChatbot] = useState<Chatbot | null>(null);
+  const [sessionKey, setSessionKey] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -67,6 +68,7 @@ export default function ChatPage() {
 
   const handleSelectChatbot = (chatbot: Chatbot) => {
     setSelectedChatbot(chatbot);
+    setSessionKey(null); // Reset session khi đổi chatbot
     setMessages(
       chatbot.welcome_message
         ? [
@@ -98,7 +100,11 @@ export default function ChatPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMessage, stream: true }),
+          body: JSON.stringify({
+            message: userMessage,
+            session_key: sessionKey,
+            stream: true,
+          }),
         }
       );
 
@@ -109,10 +115,10 @@ export default function ChatPage() {
       const contentType = response.headers.get("content-type");
 
       if (contentType?.includes("text/event-stream")) {
-        // Handle streaming response
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
         let fullContent = "";
+        let newSessionKey = sessionKey;
 
         if (reader) {
           while (true) {
@@ -129,6 +135,13 @@ export default function ChatPage() {
 
                 try {
                   const parsed = JSON.parse(data);
+
+                  // Lấy session_key từ response đầu tiên
+                  if (parsed.session_key && !newSessionKey) {
+                    newSessionKey = parsed.session_key;
+                    setSessionKey(newSessionKey);
+                  }
+
                   const content = parsed.choices?.[0]?.delta?.content || "";
                   if (content) {
                     fullContent += content;
@@ -150,8 +163,13 @@ export default function ChatPage() {
         }
         setStreamingContent("");
       } else {
-        // Handle non-streaming response
         const data = await response.json();
+
+        // Lưu session_key
+        if (data.session_key) {
+          setSessionKey(data.session_key);
+        }
+
         if (data.choices?.[0]?.message?.content) {
           setMessages((prev) => [
             ...prev,
@@ -176,6 +194,7 @@ export default function ChatPage() {
   };
 
   const clearChat = () => {
+    setSessionKey(null); // Reset session
     if (selectedChatbot?.welcome_message) {
       setMessages([
         {
@@ -286,7 +305,6 @@ export default function ChatPage() {
               </div>
             ))}
 
-            {/* Streaming content */}
             {streamingContent && (
               <div>
                 <div className="prose prose-sm dark:prose-invert max-w-none">
@@ -297,7 +315,6 @@ export default function ChatPage() {
               </div>
             )}
 
-            {/* Loading indicator */}
             {isLoading && !streamingContent && (
               <div className="flex gap-1 py-2">
                 <span
