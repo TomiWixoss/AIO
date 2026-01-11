@@ -200,7 +200,7 @@ export default function ProvidersPage() {
                           onClick={() =>
                             updatePriority(
                               provider,
-                              (provider.priority || 0) + 10
+                              (provider.priority || 0) + 1
                             )
                           }
                         >
@@ -216,7 +216,7 @@ export default function ProvidersPage() {
                           onClick={() =>
                             updatePriority(
                               provider,
-                              Math.max(0, (provider.priority || 0) - 10)
+                              Math.max(0, (provider.priority || 0) - 1)
                             )
                           }
                         >

@@ -3,10 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Settings,
   Bot,
   Database,
-  BarChart3,
   Users,
   Wrench,
   BookOpen,
@@ -23,7 +21,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -33,18 +30,13 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/auth";
 
-const mainMenu = [
+const menuItems = [
   { title: "Chat Demo", icon: MessageSquare, href: "/chat" },
-  { title: "Thống kê", icon: BarChart3, href: "/stats" },
-];
-
-const adminMenu = [
   { title: "Chatbot Builder", icon: Blocks, href: "/admin/chatbots" },
   { title: "Providers", icon: Database, href: "/admin/providers" },
   { title: "Tools", icon: Wrench, href: "/admin/tools" },
   { title: "Knowledge Base", icon: BookOpen, href: "/admin/knowledge" },
   { title: "Quản trị viên", icon: Users, href: "/admin/users" },
-  { title: "Cài đặt", icon: Settings, href: "/admin/settings" },
 ];
 
 export function AppSidebar() {
@@ -63,28 +55,9 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu chính</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenu.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname === item.href}>
-                    <Link href={item.href}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Quản trị</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminMenu.map((item) => (
+              {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
