@@ -10,6 +10,11 @@ export interface ToolFormData {
   description: string;
   endpoint_url: string;
   http_method: string;
+  headers_template: string;
+  body_template: string;
+  query_params_template: string;
+  parameters: string;
+  response_mapping: string;
   is_active: boolean;
 }
 
@@ -18,6 +23,11 @@ const initialFormData: ToolFormData = {
   description: "",
   endpoint_url: "",
   http_method: "GET",
+  headers_template: "",
+  body_template: "",
+  query_params_template: "",
+  parameters: "",
+  response_mapping: "",
   is_active: true,
 };
 
@@ -64,6 +74,12 @@ export function useTools() {
     onError: () => toast.error("Lỗi xóa"),
   });
 
+  const parseJsonField = (value: any): string => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    return JSON.stringify(value, null, 2);
+  };
+
   const openDialog = (tool?: Tool) => {
     if (tool) {
       setEditingTool(tool);
@@ -72,6 +88,13 @@ export function useTools() {
         description: tool.description,
         endpoint_url: tool.endpoint_url,
         http_method: tool.http_method,
+        headers_template: parseJsonField((tool as any).headers_template),
+        body_template: parseJsonField((tool as any).body_template),
+        query_params_template: parseJsonField(
+          (tool as any).query_params_template
+        ),
+        parameters: parseJsonField((tool as any).parameters),
+        response_mapping: parseJsonField((tool as any).response_mapping),
         is_active: tool.is_active,
       });
     } else {
@@ -86,11 +109,43 @@ export function useTools() {
     setEditingTool(null);
   };
 
+  const prepareSubmitData = (data: ToolFormData) => {
+    const result: any = {
+      name: data.name,
+      description: data.description,
+      endpoint_url: data.endpoint_url,
+      http_method: data.http_method,
+      is_active: data.is_active,
+    };
+
+    // Parse JSON fields
+    const jsonFields = [
+      "headers_template",
+      "body_template",
+      "query_params_template",
+      "parameters",
+      "response_mapping",
+    ];
+    jsonFields.forEach((field) => {
+      const value = (data as any)[field];
+      if (value && value.trim()) {
+        try {
+          result[field] = JSON.parse(value);
+        } catch {
+          result[field] = value;
+        }
+      }
+    });
+
+    return result;
+  };
+
   const handleSubmit = () => {
+    const submitData = prepareSubmitData(formData);
     if (editingTool) {
-      updateMutation.mutate({ id: editingTool.id, data: formData });
+      updateMutation.mutate({ id: editingTool.id, data: submitData });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(submitData);
     }
   };
 

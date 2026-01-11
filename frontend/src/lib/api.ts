@@ -67,6 +67,11 @@ export interface Tool {
   description: string;
   endpoint_url: string;
   http_method: string;
+  headers_template?: object | string;
+  body_template?: object | string;
+  query_params_template?: object | string;
+  parameters?: object | string;
+  response_mapping?: object | string;
   is_active: boolean;
 }
 

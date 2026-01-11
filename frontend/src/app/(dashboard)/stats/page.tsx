@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { statsApi } from "@/lib/api";
 
-interface Stats {
+interface DashboardStats {
   providers: { total: number; active: number };
   models: { total: number; active: number };
   tools: { total: number; active: number };
@@ -25,21 +25,24 @@ interface Stats {
   chat_sessions: { total: number };
 }
 
+const defaultStats: DashboardStats = {
+  providers: { total: 0, active: 0 },
+  models: { total: 0, active: 0 },
+  tools: { total: 0, active: 0 },
+  api_keys: { total: 0, active: 0 },
+  chatbots: { total: 0, active: 0, public: 0 },
+  knowledge_bases: { total: 0, active: 0 },
+  chat_sessions: { total: 0 },
+};
+
 export default function StatsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["stats"],
     queryFn: () => statsApi.get(),
   });
 
-  const stats: Stats = data?.data?.data || {
-    providers: { total: 0, active: 0 },
-    models: { total: 0, active: 0 },
-    tools: { total: 0, active: 0 },
-    api_keys: { total: 0, active: 0 },
-    chatbots: { total: 0, active: 0, public: 0 },
-    knowledge_bases: { total: 0, active: 0 },
-    chat_sessions: { total: 0 },
-  };
+  const stats: DashboardStats =
+    (data?.data?.data as DashboardStats) || defaultStats;
 
   const cards = [
     {

@@ -15,6 +15,7 @@ import {
   Moon,
   Sun,
   Blocks,
+  MessageSquare,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
@@ -33,7 +34,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/auth";
 
-const mainMenu = [{ title: "Thống kê", icon: BarChart3, href: "/stats" }];
+const mainMenu = [
+  { title: "Chat Demo", icon: MessageSquare, href: "/chat" },
+  { title: "Thống kê", icon: BarChart3, href: "/stats" },
+];
 
 const adminMenu = [
   { title: "Chatbot Builder", icon: Blocks, href: "/admin/chatbots" },
