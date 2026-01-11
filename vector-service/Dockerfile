@@ -1,8 +1,8 @@
-# Vector Service Dockerfile
-FROM node:20-alpine AS builder
+# Vector Service Dockerfile - Using Debian for sqlite-vec compatibility
+FROM node:20-slim AS builder
 
-# Install build dependencies for better-sqlite3 and sqlite-vec
-RUN apk add --no-cache python3 make g++ git
+# Install build dependencies
+RUN apt-get update && apt-get install -y python3 make g++ git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -25,10 +25,7 @@ COPY vector-service/src ./src
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine AS runner
-
-# Install runtime dependencies for better-sqlite3
-RUN apk add --no-cache python3 make g++
+FROM node:20-slim AS runner
 
 WORKDIR /app
 
