@@ -44,6 +44,124 @@ toolRoutes.post(
   })
 );
 
+// POST test tool - Execute tool with test parameters
+toolRoutes.post(
+  "/:id/test",
+  asyncHandler(async (req: any, res: any) => {
+    const { params } = req.body;
+
+    // Get tool config
+    const tool: any = await dbGet(`/tools/${req.params.id}`);
+
+    // Build URL with path params
+    let url = tool.endpoint_url;
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        url = url.replace(`{{${key}}}`, encodeURIComponent(String(value)));
+      });
+    }
+
+    // Build query params
+    if (tool.query_params_template) {
+      const queryParams = new URLSearchParams();
+      Object.entries(tool.query_params_template).forEach(
+        ([key, template]: [string, any]) => {
+          let value = String(template);
+          if (params) {
+            Object.entries(params).forEach(([k, v]) => {
+              value = value.replace(`{{${k}}}`, String(v));
+            });
+          }
+          // Only add if no unresolved placeholders
+          if (!value.includes("{{")) {
+            queryParams.append(key, value);
+          }
+        }
+      );
+      const queryString = queryParams.toString();
+      if (queryString) {
+        url += (url.includes("?") ? "&" : "?") + queryString;
+      }
+    }
+
+    // Build headers
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (tool.headers_template) {
+      Object.entries(tool.headers_template).forEach(
+        ([key, template]: [string, any]) => {
+          let value = String(template);
+          if (params) {
+            Object.entries(params).forEach(([k, v]) => {
+              value = value.replace(`{{${k}}}`, String(v));
+            });
+          }
+          headers[key] = value;
+        }
+      );
+    }
+
+    // Build body for POST/PUT
+    let body: string | undefined;
+    if (["POST", "PUT"].includes(tool.http_method) && tool.body_template) {
+      let bodyObj = JSON.stringify(tool.body_template);
+      if (params) {
+        Object.entries(params).forEach(([k, v]) => {
+          bodyObj = bodyObj.replace(new RegExp(`{{${k}}}`, "g"), String(v));
+        });
+      }
+      body = bodyObj;
+    }
+
+    // Execute request
+    const startTime = Date.now();
+    try {
+      const response = await fetch(url, {
+        method: tool.http_method,
+        headers,
+        body,
+      });
+
+      const responseTime = Date.now() - startTime;
+      const responseText = await response.text();
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = responseText;
+      }
+
+      return ok(res, {
+        success: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        data: responseData,
+        responseTime,
+        request: {
+          method: tool.http_method,
+          url,
+          headers,
+          body: body ? JSON.parse(body) : undefined,
+        },
+      });
+    } catch (error: any) {
+      return ok(res, {
+        success: false,
+        error: error.message,
+        responseTime: Date.now() - startTime,
+        request: {
+          method: tool.http_method,
+          url,
+          headers,
+          body: body ? JSON.parse(body) : undefined,
+        },
+      });
+    }
+  })
+);
+
 // PUT update tool
 toolRoutes.put(
   "/:id",

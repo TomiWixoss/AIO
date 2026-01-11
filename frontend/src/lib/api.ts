@@ -194,6 +194,8 @@ export const toolsApi = {
   create: (data: Partial<Tool>) => api.post("/tools", data),
   update: (id: number, data: Partial<Tool>) => api.put(`/tools/${id}`, data),
   delete: (id: number) => api.delete(`/tools/${id}`),
+  test: (id: number, params: Record<string, any>) =>
+    api.post<{ success: boolean; data: any }>(`/tools/${id}/test`, { params }),
 };
 
 // Knowledge Bases API

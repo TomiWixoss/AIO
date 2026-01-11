@@ -33,7 +33,6 @@ const initialFormData: ToolFormData = {
 
 export function useTools() {
   const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
   const [formData, setFormData] = useState<ToolFormData>(initialFormData);
 
@@ -46,10 +45,13 @@ export function useTools() {
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<Tool>) => toolsApi.create(data),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["tools"] });
       toast.success("Tạo tool thành công");
-      closeDialog();
+      // Update editing tool with new ID
+      if (response?.data?.data?.id) {
+        setEditingTool({ ...formData, id: response.data.data.id } as any);
+      }
     },
     onError: () => toast.error("Lỗi tạo tool"),
   });
@@ -60,7 +62,6 @@ export function useTools() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tools"] });
       toast.success("Cập nhật thành công");
-      closeDialog();
     },
     onError: () => toast.error("Lỗi cập nhật"),
   });
@@ -70,6 +71,8 @@ export function useTools() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tools"] });
       toast.success("Xóa thành công");
+      setEditingTool(null);
+      setFormData(initialFormData);
     },
     onError: () => toast.error("Lỗi xóa"),
   });
@@ -101,12 +104,11 @@ export function useTools() {
       setEditingTool(null);
       setFormData(initialFormData);
     }
-    setIsDialogOpen(true);
   };
 
   const closeDialog = () => {
-    setIsDialogOpen(false);
     setEditingTool(null);
+    setFormData(initialFormData);
   };
 
   const prepareSubmitData = (data: ToolFormData) => {
@@ -141,6 +143,11 @@ export function useTools() {
   };
 
   const handleSubmit = () => {
+    if (!formData.name || !formData.description || !formData.endpoint_url) {
+      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc");
+      return;
+    }
+
     const submitData = prepareSubmitData(formData);
     if (editingTool) {
       updateMutation.mutate({ id: editingTool.id, data: submitData });
@@ -163,8 +170,6 @@ export function useTools() {
   return {
     tools,
     isLoading,
-    isDialogOpen,
-    setIsDialogOpen,
     editingTool,
     formData,
     updateFormData,
@@ -174,7 +179,7 @@ export function useTools() {
     toggleActive,
     isSubmitting: createMutation.isPending || updateMutation.isPending,
     handleDelete: (id: number) => {
-      if (confirm("Xác nhận xóa?")) deleteMutation.mutate(id);
+      deleteMutation.mutate(id);
     },
   };
 }
