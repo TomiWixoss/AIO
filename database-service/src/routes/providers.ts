@@ -24,7 +24,8 @@ providerRoutes.get(
   asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(`
     SELECT p.*, 
-      (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count
+      (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count,
+      (SELECT COUNT(*) FROM models m WHERE m.provider_id = p.id) as models_count
     FROM providers p ORDER BY p.priority DESC, p.provider_id
   `);
     return ok(res, rows);
@@ -37,7 +38,8 @@ providerRoutes.get(
   asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(`
     SELECT p.*, 
-      (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count
+      (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count,
+      (SELECT COUNT(*) FROM models m WHERE m.provider_id = p.id) as models_count
     FROM providers p WHERE p.is_active = TRUE ORDER BY p.priority DESC
   `);
     return ok(res, rows);

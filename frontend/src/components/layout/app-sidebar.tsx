@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Settings,
-  Key,
   Bot,
   Database,
   BarChart3,
@@ -42,8 +41,6 @@ const mainMenu = [
 const adminMenu = [
   { title: "Chatbot Builder", icon: Blocks, href: "/admin/chatbots" },
   { title: "Providers", icon: Database, href: "/admin/providers" },
-  { title: "Models", icon: Bot, href: "/admin/models" },
-  { title: "API Keys", icon: Key, href: "/admin/api-keys" },
   { title: "Tools", icon: Wrench, href: "/admin/tools" },
   { title: "Knowledge Base", icon: BookOpen, href: "/admin/knowledge" },
   { title: "Quản trị viên", icon: Users, href: "/admin/users" },

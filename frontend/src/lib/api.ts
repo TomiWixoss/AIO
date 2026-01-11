@@ -34,6 +34,7 @@ export interface Provider {
   is_active: boolean;
   priority?: number;
   active_keys_count?: number;
+  models_count?: number;
 }
 
 export interface Model {
