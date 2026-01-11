@@ -11,6 +11,7 @@ export interface ModelFormData {
   display_name: string;
   context_length: number;
   is_active: boolean;
+  priority: number;
 }
 
 const initialFormData: ModelFormData = {
@@ -19,6 +20,7 @@ const initialFormData: ModelFormData = {
   display_name: "",
   context_length: 0,
   is_active: true,
+  priority: 0,
 };
 
 export function useModels() {
@@ -79,6 +81,7 @@ export function useModels() {
         display_name: model.display_name,
         context_length: model.context_length || 0,
         is_active: model.is_active,
+        priority: model.priority || 0,
       });
     } else {
       setEditingModel(null);
@@ -110,6 +113,13 @@ export function useModels() {
     });
   };
 
+  const updatePriority = (model: Model, priority: number) => {
+    updateMutation.mutate({
+      id: model.id,
+      data: { priority },
+    });
+  };
+
   const getProviderName = (providerId: number) => {
     const provider = providers.find((p) => p.id === providerId);
     return provider?.provider_id || "N/A";
@@ -132,6 +142,7 @@ export function useModels() {
     closeDialog,
     handleSubmit,
     toggleActive,
+    updatePriority,
     getProviderName,
     isSubmitting: createMutation.isPending || updateMutation.isPending,
     handleDelete: (id: number) => {

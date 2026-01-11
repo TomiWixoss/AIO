@@ -2,7 +2,12 @@
 // UNIFIED REQUEST/RESPONSE TYPES
 // ============================================
 
-export type Provider = "openrouter" | "google-ai" | "groq" | "cerebras";
+export type Provider =
+  | "openrouter"
+  | "google-ai"
+  | "groq"
+  | "cerebras"
+  | "auto";
 
 export interface Message {
   role: "system" | "user" | "assistant";
@@ -36,6 +41,12 @@ export interface ChatCompletionResponse {
     total_tokens: number;
   };
   created: number;
+  // Auto mode info
+  auto_selected?: {
+    original_provider: string;
+    original_model: string;
+    fallback_count: number;
+  };
 }
 
 export interface StreamChunk {

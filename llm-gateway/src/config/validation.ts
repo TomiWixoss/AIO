@@ -10,11 +10,12 @@ export const ProviderSchema = z.enum([
   "google-ai",
   "groq",
   "cerebras",
+  "auto", // Auto mode - tự động chọn theo priority
 ]);
 
 export const ChatCompletionRequestSchema = z.object({
   provider: ProviderSchema,
-  model: z.string().min(1, "Model is required"),
+  model: z.string().min(1, "Model is required").or(z.literal("auto")), // "auto" khi dùng auto provider
   messages: z.array(MessageSchema).min(1, "At least one message is required"),
   temperature: z.number().min(0).max(2).optional(),
   max_tokens: z.number().int().positive().max(100000).optional(),

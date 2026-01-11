@@ -43,7 +43,10 @@ export interface Model {
   display_name: string;
   context_length: number | null;
   is_active: boolean;
+  is_fallback?: boolean;
+  priority?: number;
   provider_name?: string;
+  provider_priority?: number;
 }
 
 export interface ApiKey {

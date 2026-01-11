@@ -1,6 +1,14 @@
 "use client";
 
-import { Plus, Pencil, Trash2, Loader2, Bot } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  Bot,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +46,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useModels } from "@/hooks";
 
 export default function ModelsPage() {
@@ -54,16 +68,25 @@ export default function ModelsPage() {
     closeDialog,
     handleSubmit,
     toggleActive,
+    updatePriority,
     getProviderName,
     isSubmitting,
     handleDelete,
   } = useModels();
 
+  // Sort models by provider priority then model priority
+  const sortedModels = [...models].sort((a, b) => {
+    const provPriorityA = a.provider_priority || 0;
+    const provPriorityB = b.provider_priority || 0;
+    if (provPriorityB !== provPriorityA) return provPriorityB - provPriorityA;
+    return (b.priority || 0) - (a.priority || 0);
+  });
+
   return (
     <div className="flex flex-col h-screen">
       <Header
         title="Models"
-        description="Quản lý các model AI"
+        description="Quản lý các model AI - Sắp xếp theo ưu tiên cho chế độ Auto"
         actions={
           <Button onClick={() => openDialog()}>
             <Plus className="h-4 w-4 mr-2" />
@@ -80,7 +103,8 @@ export default function ModelsPage() {
               Danh sách Models
             </CardTitle>
             <CardDescription>
-              Các model AI đã cấu hình trong hệ thống
+              Các model AI đã cấu hình. Ưu tiên cao hơn sẽ được chọn trước trong
+              chế độ Auto.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -98,12 +122,22 @@ export default function ModelsPage() {
                     <TableHead>Tên hiển thị</TableHead>
                     <TableHead>Provider</TableHead>
                     <TableHead>Context</TableHead>
+                    <TableHead className="text-center">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>Ưu tiên</TooltipTrigger>
+                          <TooltipContent>
+                            <p>Số cao hơn = ưu tiên cao hơn trong Auto mode</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
                     <TableHead>Trạng thái</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {models.map((model) => (
+                  {sortedModels.map((model) => (
                     <TableRow key={model.id}>
                       <TableCell className="font-mono text-sm">
                         {model.model_id}
@@ -119,6 +153,36 @@ export default function ModelsPage() {
                       </TableCell>
                       <TableCell>
                         {model.context_length?.toLocaleString() || "N/A"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() =>
+                              updatePriority(model, (model.priority || 0) + 10)
+                            }
+                          >
+                            <ArrowUp className="h-3 w-3" />
+                          </Button>
+                          <span className="w-8 text-center font-mono text-sm">
+                            {model.priority || 0}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() =>
+                              updatePriority(
+                                model,
+                                Math.max(0, (model.priority || 0) - 10)
+                              )
+                            }
+                          >
+                            <ArrowDown className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Switch
@@ -198,18 +262,33 @@ export default function ModelsPage() {
                 placeholder="Gemini 2.0 Flash"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Context Length</Label>
-              <Input
-                type="number"
-                value={formData.context_length}
-                onChange={(e) =>
-                  updateFormData({
-                    context_length: parseInt(e.target.value) || 0,
-                  })
-                }
-                placeholder="128000"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Context Length</Label>
+                <Input
+                  type="number"
+                  value={formData.context_length}
+                  onChange={(e) =>
+                    updateFormData({
+                      context_length: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="128000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Ưu tiên (Auto mode)</Label>
+                <Input
+                  type="number"
+                  value={formData.priority}
+                  onChange={(e) =>
+                    updateFormData({
+                      priority: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="0"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

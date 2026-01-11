@@ -82,9 +82,11 @@ CREATE TABLE models (
     context_length INT,
     is_active BOOLEAN DEFAULT TRUE,
     is_fallback BOOLEAN DEFAULT FALSE,
+    priority INT DEFAULT 0,                        -- Ưu tiên trong provider (cao hơn = ưu tiên hơn)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_provider_model (provider_id, model_id)
+    UNIQUE KEY unique_provider_model (provider_id, model_id),
+    INDEX idx_models_priority (is_active, priority DESC)
 );
 
 -- 6. chat_sessions - Phiên chat

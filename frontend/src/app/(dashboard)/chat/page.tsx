@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Plus, StopCircle, Bot, User, Sparkles } from "lucide-react";
+import { Send, Plus, StopCircle, Bot, User, Sparkles, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { toast } from "sonner";
@@ -18,6 +18,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { modelsApi, chatApi, ChatMessage } from "@/lib/api";
 import { useChatStore } from "@/stores/chat";
 import { cn } from "@/lib/utils";
@@ -39,6 +48,10 @@ export default function ChatPage() {
     selectedModel,
     setSelectedProvider,
     setSelectedModel,
+    isAutoMode,
+    setIsAutoMode,
+    lastAutoSelection,
+    setLastAutoSelection,
     addMessage,
   } = useChatStore();
 
@@ -86,16 +99,20 @@ export default function ChatPage() {
     setCurrentSession(null);
     setSessionKey(null);
     clearStreamContent();
+    setLastAutoSelection(null);
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || isStreaming || !selectedProvider || !selectedModel)
-      return;
+    if (!input.trim() || isStreaming) return;
+
+    // Validate provider/model khi không ở auto mode
+    if (!isAutoMode && (!selectedProvider || !selectedModel)) return;
 
     const userMessage = input.trim();
     setInput("");
     setIsStreaming(true);
     clearStreamContent();
+    setLastAutoSelection(null);
 
     const tempUserMsg: ChatMessage = {
       id: Date.now(),
@@ -124,8 +141,8 @@ export default function ChatPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_key: sessionKey,
-            provider: selectedProvider,
-            model: selectedModel,
+            provider: isAutoMode ? "auto" : selectedProvider,
+            model: isAutoMode ? "auto" : selectedModel,
             message: userMessage,
             stream: true,
           }),
@@ -157,6 +174,15 @@ export default function ChatPage() {
               const parsed = JSON.parse(data);
               if (parsed.session_key && !sessionKey) {
                 setSessionKey(parsed.session_key);
+              }
+              // Track auto selection info
+              if (parsed.auto_selected) {
+                setLastAutoSelection({
+                  provider:
+                    parsed.provider || parsed.auto_selected.original_provider,
+                  model: parsed.model || parsed.auto_selected.original_model,
+                  fallbackCount: parsed.auto_selected.fallback_count || 0,
+                });
               }
               const content = parsed.choices?.[0]?.delta?.content;
               if (content) {
@@ -219,32 +245,81 @@ export default function ChatPage() {
 
       <div className="flex-1 flex flex-col overflow-hidden p-4">
         {/* Model selector */}
-        <div className="flex gap-2 mb-4">
-          <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Provider" />
-            </SelectTrigger>
-            <SelectContent>
-              {providers.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex gap-2 mb-4 items-center flex-wrap">
+          {/* Auto mode toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 mr-2 p-2 rounded-md border bg-background">
+                  <Zap
+                    className={cn("h-4 w-4", isAutoMode && "text-yellow-500")}
+                  />
+                  <Label htmlFor="auto-mode" className="text-sm cursor-pointer">
+                    Auto
+                  </Label>
+                  <Switch
+                    id="auto-mode"
+                    checked={isAutoMode}
+                    onCheckedChange={setIsAutoMode}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Tự động chọn model theo ưu tiên và fallback khi lỗi</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-          <Select value={selectedModel} onValueChange={setSelectedModel}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Model" />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredModels.map((m) => (
-                <SelectItem key={m.id} value={m.model_id}>
-                  {m.display_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!isAutoMode && (
+            <>
+              <Select
+                value={selectedProvider}
+                onValueChange={setSelectedProvider}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredModels.map((m) => (
+                    <SelectItem key={m.id} value={m.model_id}>
+                      {m.display_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+
+          {isAutoMode && (
+            <Badge variant="secondary" className="text-xs">
+              <Zap className="h-3 w-3 mr-1" />
+              Tự động chọn model tốt nhất
+            </Badge>
+          )}
+
+          {lastAutoSelection && (
+            <Badge variant="outline" className="text-xs">
+              Đã dùng: {lastAutoSelection.provider}/{lastAutoSelection.model}
+              {lastAutoSelection.fallbackCount > 0 && (
+                <span className="ml-1 text-yellow-600">
+                  (fallback: {lastAutoSelection.fallbackCount})
+                </span>
+              )}
+            </Badge>
+          )}
         </div>
 
         {/* Messages */}
@@ -255,6 +330,12 @@ export default function ChatPage() {
                 <Sparkles className="h-12 w-12 mb-4" />
                 <p className="text-lg font-medium">Bắt đầu cuộc trò chuyện</p>
                 <p className="text-sm">Nhập tin nhắn để chat với AI</p>
+                {isAutoMode && (
+                  <p className="text-xs mt-2 text-yellow-600">
+                    <Zap className="h-3 w-3 inline mr-1" />
+                    Chế độ Auto: Tự động chọn model theo ưu tiên
+                  </p>
+                )}
               </div>
             )}
 

@@ -26,10 +26,27 @@ modelRoutes.get(
   "/active",
   asyncHandler(async (_req: any, res: any) => {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT m.*, p.provider_id as provider_name 
+      `SELECT m.*, p.provider_id as provider_name, p.priority as provider_priority
      FROM models m 
      JOIN providers p ON m.provider_id = p.id 
-     WHERE m.is_active = TRUE AND p.is_active = TRUE`
+     WHERE m.is_active = TRUE AND p.is_active = TRUE
+     ORDER BY p.priority DESC, m.priority DESC`
+    );
+    return ok(res, rows);
+  })
+);
+
+// GET models for auto mode - sorted by provider priority then model priority
+modelRoutes.get(
+  "/auto-priority",
+  asyncHandler(async (_req: any, res: any) => {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT m.*, p.provider_id as provider_name, p.priority as provider_priority,
+              (SELECT COUNT(*) FROM api_keys ak WHERE ak.provider_id = p.id AND ak.is_active = TRUE) as active_keys_count
+       FROM models m 
+       JOIN providers p ON m.provider_id = p.id 
+       WHERE m.is_active = TRUE AND p.is_active = TRUE
+       ORDER BY p.priority DESC, m.priority DESC`
     );
     return ok(res, rows);
   })
@@ -98,12 +115,13 @@ modelRoutes.post(
       context_length,
       is_active,
       is_fallback,
+      priority,
     } = req.body;
     if (!provider_id || !model_id || !display_name) {
       throw BadRequest("provider_id, model_id, display_name are required");
     }
     const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO models (provider_id, model_id, display_name, context_length, is_active, is_fallback) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO models (provider_id, model_id, display_name, context_length, is_active, is_fallback, priority) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         provider_id,
         model_id,
@@ -111,6 +129,7 @@ modelRoutes.post(
         context_length,
         is_active ?? true,
         is_fallback ?? false,
+        priority ?? 0,
       ]
     );
     return created(res, { id: result.insertId, model_id, display_name });
@@ -121,10 +140,18 @@ modelRoutes.post(
 modelRoutes.put(
   "/:id",
   asyncHandler(async (req: any, res: any) => {
-    const { display_name, context_length, is_active, is_fallback } = req.body;
+    const { display_name, context_length, is_active, is_fallback, priority } =
+      req.body;
     const [result] = await pool.query<ResultSetHeader>(
-      "UPDATE models SET display_name = COALESCE(?, display_name), context_length = COALESCE(?, context_length), is_active = COALESCE(?, is_active), is_fallback = COALESCE(?, is_fallback) WHERE id = ?",
-      [display_name, context_length, is_active, is_fallback, req.params.id]
+      "UPDATE models SET display_name = COALESCE(?, display_name), context_length = COALESCE(?, context_length), is_active = COALESCE(?, is_active), is_fallback = COALESCE(?, is_fallback), priority = COALESCE(?, priority) WHERE id = ?",
+      [
+        display_name,
+        context_length,
+        is_active,
+        is_fallback,
+        priority,
+        req.params.id,
+      ]
     );
     if (result.affectedRows === 0) throw NotFound("Model");
     return ok(res, { id: parseInt(req.params.id) }, "Updated successfully");
