@@ -3,10 +3,13 @@
 **/.pnp
 **/.pnp.js
 
-# Build outputs
-**/dist
-**/.next
-**/out
+# Build outputs (except shared which is pre-built)
+backend/dist
+database-service/dist
+llm-gateway/dist
+vector-service/dist
+frontend/.next
+frontend/out
 
 # Testing
 **/coverage

@@ -12,7 +12,7 @@ import {
   ApiKey,
 } from "@/lib/api";
 
-export interface ModelFormData {
+export interface ProviderModelFormData {
   model_id: string;
   display_name: string;
   is_active: boolean;
@@ -25,7 +25,7 @@ export interface ApiKeyFormData {
   daily_limit: number;
 }
 
-const initialModelForm: ModelFormData = {
+const initialModelForm: ProviderModelFormData = {
   model_id: "",
   display_name: "",
   is_active: true,
@@ -47,7 +47,8 @@ export function useProviderDetail(providerId: number) {
   const [editingModel, setEditingModel] = useState<Model | null>(null);
 
   // Form states
-  const [modelForm, setModelForm] = useState<ModelFormData>(initialModelForm);
+  const [modelForm, setModelForm] =
+    useState<ProviderModelFormData>(initialModelForm);
   const [keyForm, setKeyForm] = useState<ApiKeyFormData>(initialKeyForm);
 
   // Fetch provider detail
@@ -237,7 +238,7 @@ export function useProviderDetail(providerId: number) {
     setIsModelDialogOpen,
     editingModel,
     modelForm,
-    setModelForm: (updates: Partial<ModelFormData>) =>
+    setModelForm: (updates: Partial<ProviderModelFormData>) =>
       setModelForm((prev) => ({ ...prev, ...updates })),
     openModelDialog,
     closeModelDialog,

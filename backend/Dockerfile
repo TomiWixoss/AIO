@@ -3,11 +3,16 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy shared module
-COPY shared /app/shared
+# Copy and install shared module dependencies
+COPY shared/package*.json ../shared/
+COPY shared/*.js ../shared/
+COPY shared/*.d.ts ../shared/
+RUN cd ../shared && npm ci --only=production
 
 # Copy service files
 COPY backend/package*.json ./
+
+# Install dependencies (this will link shared module)
 RUN npm ci
 
 COPY backend/tsconfig.json ./
@@ -21,8 +26,11 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Copy shared module for runtime
-COPY shared /app/shared
+# Copy shared module (pre-built)
+COPY shared/package*.json ../shared/
+COPY shared/*.js ../shared/
+COPY shared/*.d.ts ../shared/
+RUN cd ../shared && npm ci --only=production
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist

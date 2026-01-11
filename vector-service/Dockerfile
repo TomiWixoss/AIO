@@ -6,11 +6,16 @@ RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
-# Copy shared module
-COPY shared /app/shared
+# Copy and install shared module dependencies
+COPY shared/package*.json ../shared/
+COPY shared/*.js ../shared/
+COPY shared/*.d.ts ../shared/
+RUN cd ../shared && npm ci --only=production
 
 # Copy service files
 COPY vector-service/package*.json ./
+
+# Install dependencies
 RUN npm ci
 
 COPY vector-service/tsconfig.json ./
@@ -27,8 +32,11 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Copy shared module for runtime
-COPY shared /app/shared
+# Copy shared module (pre-built)
+COPY shared/package*.json ../shared/
+COPY shared/*.js ../shared/
+COPY shared/*.d.ts ../shared/
+RUN cd ../shared && npm ci --only=production
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist
