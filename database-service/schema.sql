@@ -151,6 +151,47 @@ CREATE TABLE knowledge_bases (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- 11. chatbots - Cấu hình chatbot
+CREATE TABLE chatbots (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    slug VARCHAR(100) NOT NULL UNIQUE,            -- URL-friendly identifier
+    description TEXT,
+    
+    -- Model Configuration
+    provider_id INT,                              -- NULL = auto mode
+    model_id INT,                                 -- NULL = auto mode  
+    auto_mode BOOLEAN DEFAULT FALSE,
+    
+    -- Behavior
+    system_prompt TEXT,
+    temperature DECIMAL(3,2) DEFAULT 0.7,
+    max_tokens INT DEFAULT 2048,
+    
+    -- Features
+    tool_ids JSON,                                -- Array of tool IDs: [1, 2, 3]
+    knowledge_base_ids JSON,                      -- Array of KB IDs: [1, 2]
+    
+    -- Appearance
+    welcome_message TEXT,
+    placeholder_text VARCHAR(255) DEFAULT 'Nhập tin nhắn...',
+    
+    -- Access
+    is_public BOOLEAN DEFAULT FALSE,              -- Có thể truy cập không cần auth
+    api_key VARCHAR(64),                          -- API key riêng cho chatbot này
+    allowed_origins JSON,                         -- CORS origins: ["https://example.com"]
+    
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL,
+    FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE SET NULL,
+    INDEX idx_chatbots_slug (slug),
+    INDEX idx_chatbots_api_key (api_key)
+);
+
+
 -- 10. knowledge_items - Dữ liệu trong knowledge base
 CREATE TABLE knowledge_items (
     id INT AUTO_INCREMENT PRIMARY KEY,

@@ -12,6 +12,7 @@ import { chatSessionRoutes } from "./routes/chat-sessions.js";
 import { chatMessageRoutes } from "./routes/chat-messages.js";
 import { usageLogRoutes } from "./routes/usage-logs.js";
 import { knowledgeBaseRoutes } from "./routes/knowledge-bases.js";
+import { chatbotRoutes } from "./routes/chatbots.js";
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use("/chat-sessions", chatSessionRoutes);
 app.use("/chat-messages", chatMessageRoutes);
 app.use("/usage-logs", usageLogRoutes);
 app.use("/knowledge-bases", knowledgeBaseRoutes);
+app.use("/chatbots", chatbotRoutes);
 
 // Health check
 app.get("/health", async (_req, res) => {

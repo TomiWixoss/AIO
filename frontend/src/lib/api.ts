@@ -78,6 +78,30 @@ export interface KnowledgeBase {
   item_count?: number;
 }
 
+export interface Chatbot {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  provider_id: number | null;
+  model_id: number | null;
+  provider_name: string | null;
+  model_name: string | null;
+  model_display_name: string | null;
+  auto_mode: boolean;
+  system_prompt: string;
+  temperature: number;
+  max_tokens: number;
+  tool_ids: number[] | null;
+  knowledge_base_ids: number[] | null;
+  welcome_message: string;
+  placeholder_text: string;
+  is_public: boolean;
+  api_key: string;
+  allowed_origins: string[] | null;
+  is_active: boolean;
+}
+
 export interface ChatSession {
   id: number;
   session_key: string;
@@ -229,4 +253,20 @@ export const adminsApi = {
   update: (id: number, data: { name?: string; password?: string }) =>
     api.put(`/admins/${id}`, data),
   delete: (id: number) => api.delete(`/admins/${id}`),
+};
+
+// Chatbots API
+export const chatbotsApi = {
+  getAll: () => api.get<{ success: boolean; data: Chatbot[] }>("/chatbots"),
+  getById: (id: number) =>
+    api.get<{ success: boolean; data: Chatbot }>(`/chatbots/${id}`),
+  create: (data: Partial<Chatbot>) => api.post("/chatbots", data),
+  update: (id: number, data: Partial<Chatbot>) =>
+    api.put(`/chatbots/${id}`, data),
+  delete: (id: number) => api.delete(`/chatbots/${id}`),
+  regenerateKey: (id: number) => api.post(`/chatbots/${id}/regenerate-key`, {}),
+  exportCode: (id: number) =>
+    api.get<{ success: boolean; data: Record<string, any> }>(
+      `/chatbots/${id}/export-code`
+    ),
 };

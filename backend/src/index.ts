@@ -11,6 +11,7 @@ import { modelRoutes } from "./routes/models.js";
 import { chatRoutes } from "./routes/chat.js";
 import { statsRoutes } from "./routes/stats.js";
 import { knowledgeBaseRoutes } from "./routes/knowledge-bases.js";
+import { chatbotRoutes } from "./routes/chatbots.js";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/models", modelRoutes);
 app.use("/chat", chatRoutes);
 app.use("/stats", statsRoutes);
 app.use("/knowledge-bases", knowledgeBaseRoutes);
+app.use("/chatbots", chatbotRoutes);
 
 // Health check
 app.get("/health", (_req, res) => {

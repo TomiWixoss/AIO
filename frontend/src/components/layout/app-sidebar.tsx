@@ -15,6 +15,7 @@ import {
   LogOut,
   Moon,
   Sun,
+  Blocks,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
@@ -39,6 +40,7 @@ const mainMenu = [
 ];
 
 const adminMenu = [
+  { title: "Chatbot Builder", icon: Blocks, href: "/admin/chatbots" },
   { title: "Providers", icon: Database, href: "/admin/providers" },
   { title: "Models", icon: Bot, href: "/admin/models" },
   { title: "API Keys", icon: Key, href: "/admin/api-keys" },
