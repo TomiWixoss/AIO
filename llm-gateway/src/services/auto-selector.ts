@@ -20,16 +20,10 @@ let cachedModels: AutoModel[] = [];
 let cacheTimestamp = 0;
 const CACHE_TTL = 30000; // 30 seconds
 
-// Track failed models/providers trong session
-const failedModels = new Set<string>(); // "provider:model"
-const exhaustedProviders = new Set<string>(); // providers hết key
-
-// Reset failed tracking sau 5 phút
-setInterval(() => {
-  failedModels.clear();
-  exhaustedProviders.clear();
-}, 5 * 60 * 1000);
-
+/**
+ * Lấy danh sách models đã sắp xếp theo priority
+ * Sắp xếp: provider_priority DESC → model_priority DESC
+ */
 export async function getAutoModels(): Promise<AutoModel[]> {
   const now = Date.now();
 
@@ -60,22 +54,53 @@ export interface SelectedModel {
 }
 
 /**
- * Chọn model tiếp theo theo priority
- * @param excludeModels - Danh sách models đã thử (format: "provider:model")
+ * Lấy model đầu tiên theo priority (cho auto mode khi bắt đầu)
  */
-export async function selectNextModel(
-  excludeModels: Set<string> = new Set()
+export async function getFirstPriorityModel(): Promise<SelectedModel | null> {
+  const models = await getAutoModels();
+
+  // Tìm model đầu tiên có active keys
+  for (const model of models) {
+    if (model.active_keys_count > 0) {
+      return {
+        provider: model.provider_name as Provider,
+        model: model.model_id,
+        modelId: model.id,
+        providerId: model.provider_id,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Lấy model tiếp theo để fallback
+ * @param currentProvider - Provider hiện tại
+ * @param currentModel - Model hiện tại
+ * @param failedModels - Set các model đã thử và fail (format: "provider:model")
+ * @param exhaustedProviders - Set các provider đã hết key
+ */
+export async function getNextFallbackModel(
+  currentProvider: string,
+  currentModel: string,
+  failedModels: Set<string>,
+  exhaustedProviders: Set<string>
 ): Promise<SelectedModel | null> {
   const models = await getAutoModels();
 
-  // Combine với failed models
-  const allExcluded = new Set([...excludeModels, ...failedModels]);
+  // Đánh dấu model hiện tại là đã fail
+  const currentKey = `${currentProvider}:${currentModel}`;
+  failedModels.add(currentKey);
 
+  // Tìm model tiếp theo
   for (const model of models) {
-    const key = `${model.provider_name}:${model.model_id}`;
+    const modelKey = `${model.provider_name}:${model.model_id}`;
 
-    // Skip nếu đã thử hoặc provider hết key
-    if (allExcluded.has(key)) continue;
+    // Skip nếu đã thử
+    if (failedModels.has(modelKey)) continue;
+
+    // Skip nếu provider đã hết key
     if (exhaustedProviders.has(model.provider_name)) continue;
 
     // Skip nếu provider không có active keys
@@ -83,6 +108,11 @@ export async function selectNextModel(
       exhaustedProviders.add(model.provider_name);
       continue;
     }
+
+    logger.info("Auto fallback: selected next model", {
+      from: { provider: currentProvider, model: currentModel },
+      to: { provider: model.provider_name, model: model.model_id },
+    });
 
     return {
       provider: model.provider_name as Provider,
@@ -92,41 +122,32 @@ export async function selectNextModel(
     };
   }
 
+  // Không còn model nào
+  logger.error("Auto fallback: no more models available", {
+    failedModels: Array.from(failedModels),
+    exhaustedProviders: Array.from(exhaustedProviders),
+  });
+
   return null;
-}
-
-/**
- * Đánh dấu model đã fail
- */
-export function markModelFailed(provider: string, model: string): void {
-  const key = `${provider}:${model}`;
-  failedModels.add(key);
-  logger.warn("Model marked as failed", { provider, model });
-}
-
-/**
- * Đánh dấu provider hết key
- */
-export function markProviderExhausted(provider: string): void {
-  exhaustedProviders.add(provider);
-  logger.warn("Provider marked as exhausted", { provider });
 }
 
 /**
  * Kiểm tra xem còn model nào available không
  */
-export async function hasAvailableModels(): Promise<boolean> {
+export async function hasAvailableModels(
+  failedModels: Set<string>,
+  exhaustedProviders: Set<string>
+): Promise<boolean> {
   const models = await getAutoModels();
 
   for (const model of models) {
-    const key = `${model.provider_name}:${model.model_id}`;
+    const modelKey = `${model.provider_name}:${model.model_id}`;
     if (
-      !failedModels.has(key) &&
-      !exhaustedProviders.has(model.provider_name)
+      !failedModels.has(modelKey) &&
+      !exhaustedProviders.has(model.provider_name) &&
+      model.active_keys_count > 0
     ) {
-      if (model.active_keys_count > 0) {
-        return true;
-      }
+      return true;
     }
   }
 
@@ -134,41 +155,29 @@ export async function hasAvailableModels(): Promise<boolean> {
 }
 
 /**
- * Reset tracking cho một session mới
+ * Kiểm tra lỗi có phải do provider hết key không
  */
-export function resetFailedTracking(): void {
-  failedModels.clear();
-  exhaustedProviders.clear();
+export function isProviderExhaustedError(errorMsg: string): boolean {
+  return (
+    errorMsg.includes("No active API key") ||
+    errorMsg.includes("All API keys exhausted")
+  );
 }
 
 /**
- * Lấy thông tin debug về auto selection
+ * Kiểm tra lỗi có nên fallback không (rate limit, model error, etc.)
  */
-export async function getAutoSelectionInfo(): Promise<{
-  totalModels: number;
-  availableModels: number;
-  failedModels: string[];
-  exhaustedProviders: string[];
-}> {
-  const models = await getAutoModels();
-  let availableCount = 0;
-
-  for (const model of models) {
-    const key = `${model.provider_name}:${model.model_id}`;
-    if (
-      !failedModels.has(key) &&
-      !exhaustedProviders.has(model.provider_name)
-    ) {
-      if (model.active_keys_count > 0) {
-        availableCount++;
-      }
-    }
-  }
-
-  return {
-    totalModels: models.length,
-    availableModels: availableCount,
-    failedModels: Array.from(failedModels),
-    exhaustedProviders: Array.from(exhaustedProviders),
-  };
+export function shouldFallback(errorMsg: string): boolean {
+  return (
+    errorMsg.includes("rate") ||
+    errorMsg.includes("limit") ||
+    errorMsg.includes("429") ||
+    errorMsg.includes("403") ||
+    errorMsg.includes("404") ||
+    errorMsg.includes("model") ||
+    errorMsg.includes("not found") ||
+    errorMsg.includes("PERMISSION_DENIED") ||
+    errorMsg.includes("No active API key") ||
+    errorMsg.includes("All API keys exhausted")
+  );
 }

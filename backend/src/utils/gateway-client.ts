@@ -7,6 +7,13 @@ interface ChatResponse {
   id: string;
   choices: { message: { content: string } }[];
   usage?: { prompt_tokens: number; completion_tokens: number };
+  auto_fallback?: {
+    original_provider: string;
+    original_model: string;
+    final_provider: string;
+    final_model: string;
+    fallback_count: number;
+  };
 }
 
 export async function chatCompletion(
@@ -17,7 +24,8 @@ export async function chatCompletion(
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
-    tool_ids?: number[]; // IDs của tools từ DB
+    tool_ids?: number[];
+    auto_mode?: boolean; // Chế độ auto fallback
   },
   signal?: AbortSignal
 ): Promise<ChatResponse> {
@@ -25,7 +33,7 @@ export async function chatCompletion(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
-    signal, // Pass abort signal
+    signal,
   });
   if (!res.ok) {
     const error = (await res
@@ -45,17 +53,18 @@ export async function chatCompletionStream(
     messages: { role: string; content: string }[];
     temperature?: number;
     max_tokens?: number;
-    tool_ids?: number[]; // IDs của tools từ DB
+    tool_ids?: number[];
+    auto_mode?: boolean; // Chế độ auto fallback
   },
   res: Response,
   signal?: AbortSignal,
-  onChunk?: (content: string) => void // Callback để track content
+  onChunk?: (content: string) => void
 ): Promise<void> {
   const gatewayRes = await fetch(`${BASE_URL}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...data, stream: true }),
-    signal, // Pass abort signal to fetch
+    signal,
   });
 
   if (!gatewayRes.ok) {

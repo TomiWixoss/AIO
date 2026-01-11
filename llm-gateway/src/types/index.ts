@@ -2,12 +2,7 @@
 // UNIFIED REQUEST/RESPONSE TYPES
 // ============================================
 
-export type Provider =
-  | "openrouter"
-  | "google-ai"
-  | "groq"
-  | "cerebras"
-  | "auto";
+export type Provider = "openrouter" | "google-ai" | "groq" | "cerebras";
 
 export interface Message {
   role: "system" | "user" | "assistant";
@@ -24,6 +19,7 @@ export interface ChatCompletionRequest {
   stream?: boolean;
   stop?: string[];
   tool_ids?: number[]; // IDs của tools từ DB
+  auto_mode?: boolean; // Bật chế độ auto - tự động fallback khi lỗi
 }
 
 export interface ChatCompletionResponse {
@@ -41,10 +37,12 @@ export interface ChatCompletionResponse {
     total_tokens: number;
   };
   created: number;
-  // Auto mode info
-  auto_selected?: {
+  // Thông tin fallback khi dùng auto mode
+  auto_fallback?: {
     original_provider: string;
     original_model: string;
+    final_provider: string;
+    final_model: string;
     fallback_count: number;
   };
 }

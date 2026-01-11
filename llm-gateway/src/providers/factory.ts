@@ -19,20 +19,22 @@ import {
   decryptApiKey,
 } from "../services/key-manager.js";
 import {
-  selectNextModel,
-  markModelFailed,
-  markProviderExhausted,
-  hasAvailableModels,
+  getFirstPriorityModel,
+  getNextFallbackModel,
+  isProviderExhaustedError,
+  shouldFallback,
 } from "../services/auto-selector.js";
 import { dbGet } from "../utils/db-client.js";
 import { logger } from "../utils/logger.js";
 
 interface DBProvider {
   id: number;
-  name: string;
-  display_name: string;
-  base_url: string;
+  provider_id: string;
+  name?: string;
+  display_name?: string;
+  base_url?: string;
   is_active: boolean;
+  priority: number;
 }
 
 interface DBModel {
@@ -53,16 +55,8 @@ providerInstances.set("groq", new GroqProvider());
 providerInstances.set("cerebras", new CerebrasProvider());
 providerInstances.set("google-ai", new GoogleAIProvider());
 
-const MAX_AUTO_FALLBACKS = 10; // Số lần fallback tối đa trong auto mode
-
 export class ProviderFactory {
   static getProviderInstance(name: Provider): BaseProvider {
-    if (name === "auto") {
-      throw new GatewayError(
-        400,
-        "Cannot get instance for 'auto' provider directly"
-      );
-    }
     const provider = providerInstances.get(name);
     if (!provider) {
       throw new GatewayError(400, `Provider not implemented: ${name}`);
@@ -71,13 +65,13 @@ export class ProviderFactory {
   }
 
   /**
-   * Chat completion với hỗ trợ auto mode
+   * Chat completion - hỗ trợ auto_mode với fallback không giới hạn
    */
   static async chatCompletion(
     request: ChatCompletionRequest
   ): Promise<{ response: ChatCompletionResponse; keyId: number }> {
-    // Auto mode - chọn model theo priority và fallback tự động
-    if (request.provider === "auto") {
+    // Auto mode: tự động chọn và fallback
+    if (request.auto_mode) {
       return this.autoChatCompletion(request);
     }
 
@@ -86,123 +80,106 @@ export class ProviderFactory {
   }
 
   /**
-   * Auto mode: tự động chọn model theo priority và fallback khi lỗi
+   * Auto mode: chọn model theo priority và fallback không giới hạn khi lỗi
    */
   private static async autoChatCompletion(
     request: ChatCompletionRequest
   ): Promise<{ response: ChatCompletionResponse; keyId: number }> {
-    const triedModels = new Set<string>();
+    const failedModels = new Set<string>();
+    const exhaustedProviders = new Set<string>();
     let fallbackCount = 0;
-    let firstSelected: { provider: string; model: string } | null = null;
 
-    while (fallbackCount < MAX_AUTO_FALLBACKS) {
-      // Chọn model tiếp theo theo priority
-      const selected = await selectNextModel(triedModels);
+    // Lấy model đầu tiên theo priority
+    let currentSelection = await getFirstPriorityModel();
 
-      if (!selected) {
-        throw new GatewayError(
-          503,
-          "No available models. All models exhausted or failed."
-        );
-      }
+    if (!currentSelection) {
+      throw new GatewayError(503, "No available models configured");
+    }
 
-      if (!firstSelected) {
-        firstSelected = { provider: selected.provider, model: selected.model };
-      }
+    const originalProvider = currentSelection.provider;
+    const originalModel = currentSelection.model;
 
-      const modelKey = `${selected.provider}:${selected.model}`;
-      triedModels.add(modelKey);
-
-      logger.info("Auto mode: trying model", {
-        provider: selected.provider,
-        model: selected.model,
+    // Loop fallback không giới hạn
+    while (currentSelection) {
+      logger.info("Auto mode: trying", {
+        provider: currentSelection.provider,
+        model: currentSelection.model,
         fallbackCount,
       });
 
       try {
         const result = await this.directChatCompletion({
           ...request,
-          provider: selected.provider,
-          model: selected.model,
+          provider: currentSelection.provider,
+          model: currentSelection.model,
+          auto_mode: false, // Tắt auto_mode cho direct call
         });
 
-        // Thêm thông tin auto selection vào response
-        result.response.auto_selected = {
-          original_provider: firstSelected.provider,
-          original_model: firstSelected.model,
-          fallback_count: fallbackCount,
-        };
+        // Thêm thông tin fallback vào response
+        if (fallbackCount > 0) {
+          result.response.auto_fallback = {
+            original_provider: originalProvider,
+            original_model: originalModel,
+            final_provider: currentSelection.provider,
+            final_model: currentSelection.model,
+            fallback_count: fallbackCount,
+          };
+        }
 
         return result;
       } catch (error: any) {
         const errorMsg = error.message || "";
 
+        logger.warn("Auto mode: model failed", {
+          provider: currentSelection.provider,
+          model: currentSelection.model,
+          error: errorMsg.substring(0, 150),
+        });
+
         // Kiểm tra loại lỗi
-        const isKeyExhausted =
-          errorMsg.includes("No active API key") ||
-          errorMsg.includes("All API keys exhausted");
-
-        const isRateLimit =
-          errorMsg.includes("rate") ||
-          errorMsg.includes("limit") ||
-          errorMsg.includes("429");
-
-        const isModelError =
-          errorMsg.includes("model") ||
-          errorMsg.includes("not found") ||
-          errorMsg.includes("404");
-
-        if (isKeyExhausted) {
-          // Provider hết key - đánh dấu và thử provider khác
-          markProviderExhausted(selected.provider);
-          logger.warn("Auto mode: provider exhausted", {
-            provider: selected.provider,
-          });
-        } else if (isRateLimit || isModelError) {
-          // Model lỗi - đánh dấu và thử model khác
-          markModelFailed(selected.provider, selected.model);
-          logger.warn("Auto mode: model failed", {
-            provider: selected.provider,
-            model: selected.model,
-            error: errorMsg.substring(0, 100),
-          });
-        } else {
-          // Lỗi khác - đánh dấu model failed và thử tiếp
-          markModelFailed(selected.provider, selected.model);
-          logger.error("Auto mode: unexpected error", {
-            provider: selected.provider,
-            model: selected.model,
-            error: errorMsg,
-          });
+        if (isProviderExhaustedError(errorMsg)) {
+          exhaustedProviders.add(currentSelection.provider);
         }
 
-        fallbackCount++;
+        // Kiểm tra có nên fallback không
+        if (!shouldFallback(errorMsg)) {
+          // Lỗi không thể fallback (ví dụ: invalid request)
+          throw error;
+        }
 
-        // Kiểm tra còn model nào không
-        if (!(await hasAvailableModels())) {
+        // Lấy model tiếp theo
+        const nextSelection = await getNextFallbackModel(
+          currentSelection.provider,
+          currentSelection.model,
+          failedModels,
+          exhaustedProviders
+        );
+
+        if (!nextSelection) {
+          // Hết tất cả models
           throw new GatewayError(
             503,
-            `All models exhausted after ${fallbackCount} attempts. Last error: ${errorMsg}`
+            `All models exhausted after ${
+              fallbackCount + 1
+            } attempts. Last error: ${errorMsg}`
           );
         }
+
+        currentSelection = nextSelection;
+        fallbackCount++;
       }
     }
 
-    throw new GatewayError(
-      503,
-      `Max fallback attempts (${MAX_AUTO_FALLBACKS}) reached`
-    );
+    throw new GatewayError(503, "No available models");
   }
 
   /**
-   * Direct chat completion (không auto)
+   * Direct chat completion (không auto, có key rotation trong provider)
    */
   private static async directChatCompletion(
     request: ChatCompletionRequest
   ): Promise<{ response: ChatCompletionResponse; keyId: number }> {
-    const providerInstance = this.getProviderInstance(
-      request.provider as Exclude<Provider, "auto">
-    );
+    const providerInstance = this.getProviderInstance(request.provider);
 
     // Get provider from DB
     const provider = await getProviderByName(request.provider);
@@ -224,13 +201,12 @@ export class ProviderFactory {
 
     const apiKey = await decryptApiKey(key.credentials_encrypted);
 
-    // Try keys with rotation on failure
+    // Try keys with rotation on failure (trong cùng provider)
     const triedKeyIds = new Set<number>();
     let currentKey = key;
     let currentApiKey = apiKey;
 
     while (triedKeyIds.size < 30) {
-      // Max 30 keys to try
       triedKeyIds.add(currentKey.id);
 
       try {
@@ -242,7 +218,6 @@ export class ProviderFactory {
         return { response, keyId: currentKey.id };
       } catch (error: any) {
         const errorMsg = error.message || "";
-        // Check if should try next key (rate limit, leaked, permission denied, 403, 429)
         const shouldRotate =
           errorMsg.includes("rate") ||
           errorMsg.includes("limit") ||
@@ -273,14 +248,13 @@ export class ProviderFactory {
   }
 
   /**
-   * Stream chat completion với hỗ trợ auto mode
+   * Stream chat completion - hỗ trợ auto_mode
    */
   static async streamChatCompletion(
     request: ChatCompletionRequest,
     res: Response
-  ): Promise<{ keyId: number; actualProvider?: string; actualModel?: string }> {
-    // Auto mode cho streaming
-    if (request.provider === "auto") {
+  ): Promise<{ keyId: number; finalProvider?: string; finalModel?: string }> {
+    if (request.auto_mode) {
       return this.autoStreamChatCompletion(request, res);
     }
 
@@ -288,76 +262,79 @@ export class ProviderFactory {
   }
 
   /**
-   * Auto stream: chọn model và stream, fallback nếu lỗi trước khi bắt đầu stream
+   * Auto stream: fallback trước khi bắt đầu stream
    */
   private static async autoStreamChatCompletion(
     request: ChatCompletionRequest,
     res: Response
-  ): Promise<{ keyId: number; actualProvider?: string; actualModel?: string }> {
-    const triedModels = new Set<string>();
-    let fallbackCount = 0;
+  ): Promise<{ keyId: number; finalProvider?: string; finalModel?: string }> {
+    const failedModels = new Set<string>();
+    const exhaustedProviders = new Set<string>();
 
-    while (fallbackCount < MAX_AUTO_FALLBACKS) {
-      const selected = await selectNextModel(triedModels);
+    let currentSelection = await getFirstPriorityModel();
 
-      if (!selected) {
-        throw new GatewayError(503, "No available models for streaming");
-      }
+    if (!currentSelection) {
+      throw new GatewayError(503, "No available models configured");
+    }
 
-      const modelKey = `${selected.provider}:${selected.model}`;
-      triedModels.add(modelKey);
-
-      logger.info("Auto stream: trying model", {
-        provider: selected.provider,
-        model: selected.model,
-        fallbackCount,
+    // Loop fallback không giới hạn
+    while (currentSelection) {
+      logger.info("Auto stream: trying", {
+        provider: currentSelection.provider,
+        model: currentSelection.model,
       });
 
       try {
         const result = await this.directStreamChatCompletion(
           {
             ...request,
-            provider: selected.provider,
-            model: selected.model,
+            provider: currentSelection.provider,
+            model: currentSelection.model,
+            auto_mode: false,
           },
           res
         );
 
         return {
           ...result,
-          actualProvider: selected.provider,
-          actualModel: selected.model,
+          finalProvider: currentSelection.provider,
+          finalModel: currentSelection.model,
         };
       } catch (error: any) {
-        const errorMsg = error.message || "";
-
         // Nếu đã bắt đầu stream thì không thể fallback
         if (res.headersSent) {
           throw error;
         }
 
-        const isKeyExhausted =
-          errorMsg.includes("No active API key") ||
-          errorMsg.includes("All API keys exhausted");
+        const errorMsg = error.message || "";
 
-        if (isKeyExhausted) {
-          markProviderExhausted(selected.provider);
-        } else {
-          markModelFailed(selected.provider, selected.model);
+        if (isProviderExhaustedError(errorMsg)) {
+          exhaustedProviders.add(currentSelection.provider);
         }
 
-        fallbackCount++;
+        if (!shouldFallback(errorMsg)) {
+          throw error;
+        }
 
-        if (!(await hasAvailableModels())) {
+        const nextSelection = await getNextFallbackModel(
+          currentSelection.provider,
+          currentSelection.model,
+          failedModels,
+          exhaustedProviders
+        );
+
+        if (!nextSelection) {
           throw new GatewayError(
             503,
             `All models exhausted. Last error: ${errorMsg}`
           );
         }
+
+        currentSelection = nextSelection;
       }
     }
 
-    throw new GatewayError(503, `Max fallback attempts reached for streaming`);
+    throw new GatewayError(503, "No available models");
   }
 
   /**
@@ -367,9 +344,7 @@ export class ProviderFactory {
     request: ChatCompletionRequest,
     res: Response
   ): Promise<{ keyId: number }> {
-    const providerInstance = this.getProviderInstance(
-      request.provider as Exclude<Provider, "auto">
-    );
+    const providerInstance = this.getProviderInstance(request.provider);
 
     const provider = await getProviderByName(request.provider);
     if (!provider) {
@@ -400,40 +375,31 @@ export class ProviderFactory {
   }
 
   static getAllProviders(): Provider[] {
-    return [...Array.from(providerInstances.keys()), "auto"];
+    return Array.from(providerInstances.keys());
   }
 
-  // Lấy providers từ DB
   static async getAvailableProviders(): Promise<
-    { name: string; display_name: string; is_active: boolean }[]
+    {
+      name: string;
+      display_name: string;
+      is_active: boolean;
+      priority: number;
+    }[]
   > {
     try {
       const providers = await dbGet<DBProvider[]>("/providers");
-      return [
-        {
-          name: "auto",
-          display_name: "Auto (Priority-based)",
-          is_active: true,
-        },
-        ...providers.map((p) => ({
-          name: p.name,
-          display_name: p.display_name,
-          is_active: p.is_active,
-        })),
-      ];
+      return providers.map((p) => ({
+        name: p.name || p.provider_id,
+        display_name: p.display_name || p.name || p.provider_id,
+        is_active: p.is_active,
+        priority: p.priority || 0,
+      }));
     } catch (error) {
-      logger.warn("Failed to get providers from DB, returning empty");
-      return [
-        {
-          name: "auto",
-          display_name: "Auto (Priority-based)",
-          is_active: true,
-        },
-      ];
+      logger.warn("Failed to get providers from DB");
+      return [];
     }
   }
 
-  // Lấy tất cả models từ DB
   static async getAllModels(): Promise<ModelInfo[]> {
     try {
       const models = await dbGet<DBModel[]>("/models/active");
@@ -444,7 +410,7 @@ export class ProviderFactory {
         context_length: m.context_length || undefined,
       }));
     } catch (error) {
-      logger.warn("Failed to get models from DB, returning empty");
+      logger.warn("Failed to get models from DB");
       return [];
     }
   }

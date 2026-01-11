@@ -70,6 +70,7 @@ chatRoutes.post("/", async (req, res) => {
       max_tokens,
       stream = false,
       tool_ids, // IDs của tools từ DB
+      auto_mode = false, // Chế độ auto - tự động chọn và fallback
     } = req.body;
 
     // Hỗ trợ cả 2 format: message (single) hoặc messages (array)
@@ -166,7 +167,8 @@ chatRoutes.post("/", async (req, res) => {
             messages: llmMessages,
             temperature,
             max_tokens,
-            tool_ids, // Truyền tool_ids qua gateway
+            tool_ids,
+            auto_mode, // Truyền auto_mode qua gateway
           },
           res,
           controller.signal,
@@ -227,7 +229,8 @@ chatRoutes.post("/", async (req, res) => {
           messages: llmMessages,
           temperature,
           max_tokens,
-          tool_ids, // Truyền tool_ids qua gateway
+          tool_ids,
+          auto_mode, // Truyền auto_mode qua gateway
         },
         controller.signal
       );

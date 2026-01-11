@@ -141,10 +141,11 @@ export default function ChatPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_key: sessionKey,
-            provider: isAutoMode ? "auto" : selectedProvider,
-            model: isAutoMode ? "auto" : selectedModel,
+            provider: selectedProvider,
+            model: selectedModel,
             message: userMessage,
             stream: true,
+            auto_mode: isAutoMode, // Gửi flag auto_mode
           }),
         }
       );
@@ -175,13 +176,12 @@ export default function ChatPage() {
               if (parsed.session_key && !sessionKey) {
                 setSessionKey(parsed.session_key);
               }
-              // Track auto selection info
-              if (parsed.auto_selected) {
+              // Track auto fallback info
+              if (parsed.auto_fallback) {
                 setLastAutoSelection({
-                  provider:
-                    parsed.provider || parsed.auto_selected.original_provider,
-                  model: parsed.model || parsed.auto_selected.original_model,
-                  fallbackCount: parsed.auto_selected.fallback_count || 0,
+                  provider: parsed.auto_fallback.final_provider,
+                  model: parsed.auto_fallback.final_model,
+                  fallbackCount: parsed.auto_fallback.fallback_count,
                 });
               }
               const content = parsed.choices?.[0]?.delta?.content;

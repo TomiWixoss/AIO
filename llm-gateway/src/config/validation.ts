@@ -10,19 +10,19 @@ export const ProviderSchema = z.enum([
   "google-ai",
   "groq",
   "cerebras",
-  "auto", // Auto mode - tự động chọn theo priority
 ]);
 
 export const ChatCompletionRequestSchema = z.object({
   provider: ProviderSchema,
-  model: z.string().min(1, "Model is required").or(z.literal("auto")), // "auto" khi dùng auto provider
+  model: z.string().min(1, "Model is required"),
   messages: z.array(MessageSchema).min(1, "At least one message is required"),
   temperature: z.number().min(0).max(2).optional(),
   max_tokens: z.number().int().positive().max(100000).optional(),
   top_p: z.number().min(0).max(1).optional(),
   stream: z.boolean().optional().default(false),
   stop: z.array(z.string()).optional(),
-  tool_ids: z.array(z.number().int().positive()).optional(), // IDs của tools từ DB
+  tool_ids: z.array(z.number().int().positive()).optional(),
+  auto_mode: z.boolean().optional().default(false), // Chế độ auto fallback
 });
 
 export type ValidatedChatRequest = z.infer<typeof ChatCompletionRequestSchema>;
