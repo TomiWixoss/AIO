@@ -344,7 +344,7 @@ export default function ProviderDetailPage({
                                   onClick={() =>
                                     updateModelPriority(
                                       model,
-                                      (model.priority || 0) + 10
+                                      (model.priority || 0) + 1
                                     )
                                   }
                                 >
@@ -360,7 +360,7 @@ export default function ProviderDetailPage({
                                   onClick={() =>
                                     updateModelPriority(
                                       model,
-                                      Math.max(0, (model.priority || 0) - 10)
+                                      Math.max(0, (model.priority || 0) - 1)
                                     )
                                   }
                                 >
@@ -491,27 +491,15 @@ export default function ProviderDetailPage({
                 placeholder="sk-..."
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Độ ưu tiên</Label>
-                <Input
-                  type="number"
-                  value={keyForm.priority}
-                  onChange={(e) =>
-                    setKeyForm({ priority: parseInt(e.target.value) || 1 })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Giới hạn/ngày (0 = ∞)</Label>
-                <Input
-                  type="number"
-                  value={keyForm.daily_limit}
-                  onChange={(e) =>
-                    setKeyForm({ daily_limit: parseInt(e.target.value) || 0 })
-                  }
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Giới hạn/ngày (0 = không giới hạn)</Label>
+              <Input
+                type="number"
+                value={keyForm.daily_limit}
+                onChange={(e) =>
+                  setKeyForm({ daily_limit: parseInt(e.target.value) || 0 })
+                }
+              />
             </div>
           </div>
           <DialogFooter>

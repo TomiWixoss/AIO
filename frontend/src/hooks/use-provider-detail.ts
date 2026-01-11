@@ -202,7 +202,6 @@ export function useProviderDetail(providerId: number) {
       provider_id: providerId,
       name: keyForm.name,
       credentials_encrypted: JSON.stringify({ api_key: keyForm.credentials }),
-      priority: keyForm.priority,
       daily_limit: keyForm.daily_limit,
     });
   };
