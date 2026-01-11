@@ -12,7 +12,6 @@ statsRoutes.use(authMiddleware);
 statsRoutes.get(
   "/",
   asyncHandler(async (_req: any, res: any) => {
-    // Lấy số lượng từ các bảng
     const [
       providers,
       models,
@@ -25,7 +24,7 @@ statsRoutes.get(
       dbGet<any[]>("/providers").catch(() => []),
       dbGet<any[]>("/models").catch(() => []),
       dbGet<any[]>("/tools").catch(() => []),
-      dbGet<any[]>("/api-keys/all").catch(() => []),
+      dbGet<any[]>("/api-keys").catch(() => []),
       dbGet<any[]>("/chatbots").catch(() => []),
       dbGet<any[]>("/knowledge-bases").catch(() => []),
       dbGet<any[]>("/chat-sessions").catch(() => []),

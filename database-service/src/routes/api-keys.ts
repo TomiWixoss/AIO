@@ -8,6 +8,18 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const apiKeyRoutes = Router();
 
+// GET all keys
+apiKeyRoutes.get(
+  "/",
+  asyncHandler(async (_req: any, res: any) => {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, key_type, provider_id, tool_id, name, is_active, priority, requests_today, daily_limit, 
+       last_used_at, last_error_at, created_at FROM api_keys ORDER BY created_at DESC`
+    );
+    return ok(res, rows);
+  })
+);
+
 // GET active keys for a provider (for rotation)
 apiKeyRoutes.get(
   "/provider/:providerId/active",
@@ -99,7 +111,6 @@ apiKeyRoutes.post(
     if (!provider_id) throw BadRequest("provider_id is required");
     if (!api_key) throw BadRequest("api_key is required");
 
-    // Lưu dạng JSON: { api_key: "xxx" }
     const credentials = JSON.stringify({ api_key });
     const credentials_encrypted = encrypt(credentials);
 
@@ -117,7 +128,7 @@ apiKeyRoutes.post(
   })
 );
 
-// POST create key for tool (hỗ trợ nhiều credentials)
+// POST create key for tool
 apiKeyRoutes.post(
   "/tool",
   asyncHandler(async (req: any, res: any) => {
@@ -125,7 +136,6 @@ apiKeyRoutes.post(
     if (!tool_id) throw BadRequest("tool_id is required");
     if (!credentials) throw BadRequest("credentials is required");
 
-    // credentials là object: { api_key: "xxx", cse_id: "yyy" } cho google_search
     const credentials_encrypted = encrypt(JSON.stringify(credentials));
 
     const [result] = await pool.query<ResultSetHeader>(

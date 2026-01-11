@@ -257,16 +257,6 @@ chatRoutes.post("/", async (req, res) => {
           provider_id: providerData?.id,
           model_id: modelData?.id,
         });
-
-        // Log usage
-        await dbPost("/usage-logs", {
-          session_id: session.id,
-          provider_id: providerData?.id,
-          model_id: modelData?.id,
-          prompt_tokens: response.usage?.prompt_tokens || 0,
-          completion_tokens: response.usage?.completion_tokens || 0,
-          status: "success",
-        });
       }
 
       res.json({
