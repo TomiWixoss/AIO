@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Save,
@@ -12,6 +12,7 @@ import {
   Key,
   Copy,
   Check,
+  Code,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,12 +35,15 @@ import { chatbotsApi, modelsApi, toolsApi, knowledgeApi } from "@/lib/api";
 export default function ChatbotEditorPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isNew = params.id === "new";
   const chatbotId = isNew ? null : Number(params.id);
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   // Form state
   const [name, setName] = useState("");
@@ -156,9 +160,10 @@ export default function ChatbotEditorPage() {
         await chatbotsApi.update(chatbotId, data);
         toast.success("Đã lưu!");
       } else {
-        const res = await chatbotsApi.create(data);
+        await chatbotsApi.create(data);
         toast.success("Đã tạo chatbot!");
-        router.push(`/admin/chatbots/${res.data.data.id}`);
+        await queryClient.invalidateQueries({ queryKey: ["chatbots"] });
+        router.push("/admin/chatbots");
       }
     } catch (e: any) {
       toast.error(e.response?.data?.error || e.message || "Lỗi lưu chatbot");
@@ -180,11 +185,60 @@ export default function ChatbotEditorPage() {
   };
 
   const copyApiKey = () => {
-    navigator.clipboard.writeText(apiKey);
-    setCopied(true);
-    toast.success("Đã copy API key");
-    setTimeout(() => setCopied(false), 2000);
+    copyToClipboard(apiKey, "apiKey");
   };
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    toast.success("Đã copy!");
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  // Code samples
+  const curlCode = `curl -X POST "${API_URL}/chatbots/public/${slug}/chat" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: ${apiKey}" \\
+  -d '{"message": "Xin chào!"}'`;
+
+  const fetchCode = `const response = await fetch("${API_URL}/chatbots/public/${slug}/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": "${apiKey}"
+  },
+  body: JSON.stringify({ message: "Xin chào!" })
+});
+
+const data = await response.json();
+console.log(data.choices[0].message.content);`;
+
+  const streamCode = `const response = await fetch("${API_URL}/chatbots/public/${slug}/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": "${apiKey}"
+  },
+  body: JSON.stringify({ message: "Xin chào!", stream: true })
+});
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  
+  const chunk = decoder.decode(value);
+  const lines = chunk.split("\\n").filter(line => line.startsWith("data: "));
+  
+  for (const line of lines) {
+    const data = JSON.parse(line.slice(6));
+    if (data.choices?.[0]?.delta?.content) {
+      process.stdout.write(data.choices[0].delta.content);
+    }
+  }
+}`;
 
   if (loading) {
     return (
@@ -280,6 +334,12 @@ export default function ChatbotEditorPage() {
                 )}
               </TabsTrigger>
               <TabsTrigger value="access">Truy cập</TabsTrigger>
+              {chatbotId && (
+                <TabsTrigger value="api">
+                  <Code className="h-4 w-4 mr-1" />
+                  API
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="prompt" className="mt-4 space-y-4">
@@ -550,7 +610,7 @@ export default function ChatbotEditorPage() {
                       className="font-mono text-sm"
                     />
                     <Button variant="outline" size="icon" onClick={copyApiKey}>
-                      {copied ? (
+                      {copied === "apiKey" ? (
                         <Check className="h-4 w-4" />
                       ) : (
                         <Copy className="h-4 w-4" />
@@ -570,6 +630,70 @@ export default function ChatbotEditorPage() {
                 </div>
               )}
             </TabsContent>
+
+            {chatbotId && (
+              <TabsContent value="api" className="mt-4 space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>cURL</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(curlCode, "curl")}
+                    >
+                      {copied === "curl" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm font-mono">
+                    {curlCode}
+                  </pre>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>JavaScript (Fetch)</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(fetchCode, "fetch")}
+                    >
+                      {copied === "fetch" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm font-mono">
+                    {fetchCode}
+                  </pre>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>JavaScript (Streaming)</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(streamCode, "stream")}
+                    >
+                      {copied === "stream" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap">
+                    {streamCode}
+                  </pre>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>
