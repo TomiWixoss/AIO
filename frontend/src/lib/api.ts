@@ -81,6 +81,8 @@ export interface KnowledgeBase {
   description: string;
   is_active: boolean;
   item_count?: number;
+  items_count?: number; // from list query
+  collection_id?: string;
 }
 
 export interface Chatbot {
@@ -219,6 +221,8 @@ export const knowledgeApi = {
     api.post(`/knowledge-bases/${id}/items`, data),
   deleteItem: (kbId: number, itemId: number) =>
     api.delete(`/knowledge-bases/${kbId}/items/${itemId}`),
+  search: (id: number, query: string, limit?: number) =>
+    api.post(`/knowledge-bases/${id}/search`, { query, limit: limit || 5 }),
 };
 
 // Chat API

@@ -12,7 +12,6 @@ import {
   Key,
   ArrowUp,
   ArrowDown,
-  AlertCircle,
   Settings2,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
@@ -46,12 +45,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useProviderDetail } from "@/hooks/use-provider-detail";
 
 const PROVIDER_NAMES: Record<string, string> = {
@@ -232,7 +225,6 @@ export default function ProviderDetailPage({
                         <TableHead>Tên</TableHead>
                         <TableHead>Sử dụng hôm nay</TableHead>
                         <TableHead>Giới hạn</TableHead>
-                        <TableHead>Lỗi</TableHead>
                         <TableHead>Trạng thái</TableHead>
                         <TableHead className="text-right">Thao tác</TableHead>
                       </TableRow>
@@ -246,20 +238,6 @@ export default function ProviderDetailPage({
                           <TableCell>{key.requests_today || 0}</TableCell>
                           <TableCell>
                             {key.daily_limit || "Không giới hạn"}
-                          </TableCell>
-                          <TableCell>
-                            {key.last_error && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <AlertCircle className="h-4 w-4 text-destructive" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="max-w-xs">{key.last_error}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
                           </TableCell>
                           <TableCell>
                             <Switch

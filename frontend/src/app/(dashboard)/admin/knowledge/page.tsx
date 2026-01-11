@@ -2,12 +2,15 @@
 
 import {
   Plus,
-  Pencil,
   Trash2,
-  Loader2,
+  Pencil,
   BookOpen,
+  MoreVertical,
   FileText,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +30,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -38,25 +48,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useKnowledge } from "@/hooks";
+import { useKnowledgeList } from "@/hooks/use-knowledge";
 
 export default function KnowledgePage() {
+  const router = useRouter();
   const {
     kbs,
     isLoading,
+    toggleActive,
+    handleDelete,
+    // Dialog state
     isDialogOpen,
     setIsDialogOpen,
     editingKb,
     formData,
     updateFormData,
-    openDialog,
+    openCreateDialog,
+    openEditDialog,
     closeDialog,
     handleSubmit,
-    toggleActive,
     isSubmitting,
-    handleDelete,
-  } = useKnowledge();
+  } = useKnowledgeList();
 
   return (
     <div className="flex flex-col h-screen">
@@ -64,9 +76,9 @@ export default function KnowledgePage() {
         title="Knowledge Base"
         description="Quản lý cơ sở tri thức cho AI"
         actions={
-          <Button onClick={() => openDialog()}>
+          <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
-            Thêm Knowledge Base
+            Tạo Knowledge Base
           </Button>
         }
       />
@@ -79,7 +91,7 @@ export default function KnowledgePage() {
               Danh sách Knowledge Bases
             </CardTitle>
             <CardDescription>
-              Các cơ sở tri thức để AI tìm kiếm thông tin
+              Click vào nút Items để quản lý nội dung tri thức
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -90,9 +102,16 @@ export default function KnowledgePage() {
                 ))}
               </div>
             ) : kbs.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                Chưa có knowledge base nào
-              </p>
+              <div className="text-center py-12">
+                <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground mb-4">
+                  Chưa có knowledge base nào
+                </p>
+                <Button onClick={openCreateDialog}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tạo knowledge base đầu tiên
+                </Button>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -100,21 +119,23 @@ export default function KnowledgePage() {
                     <TableHead>Tên</TableHead>
                     <TableHead>Mô tả</TableHead>
                     <TableHead>Số items</TableHead>
-                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Active</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {kbs.map((kb) => (
                     <TableRow key={kb.id}>
-                      <TableCell className="font-medium">{kb.name}</TableCell>
-                      <TableCell className="max-w-xs truncate">
+                      <TableCell>
+                        <span className="font-medium">{kb.name}</span>
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate text-muted-foreground">
                         {kb.description}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">
                           <FileText className="h-3 w-3 mr-1" />
-                          {kb.item_count || 0}
+                          {kb.items_count || kb.item_count || 0}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -123,21 +144,49 @@ export default function KnowledgePage() {
                           onCheckedChange={() => toggleActive(kb)}
                         />
                       </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openDialog(kb)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(kb.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              router.push(`/admin/knowledge/${kb.id}`)
+                            }
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Items
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => openEditDialog(kb)}
+                              >
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Chỉnh sửa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(`/admin/knowledge/${kb.id}`)
+                                }
+                              >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Quản lý Items
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => handleDelete(kb.id)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Xóa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -148,23 +197,26 @@ export default function KnowledgePage() {
         </Card>
       </div>
 
+      {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingKb ? "Sửa Knowledge Base" : "Thêm Knowledge Base"}
+              {editingKb ? "Sửa Knowledge Base" : "Tạo Knowledge Base"}
             </DialogTitle>
             <DialogDescription>
-              Cấu hình cơ sở tri thức cho AI
+              {editingKb
+                ? "Cập nhật thông tin knowledge base"
+                : "Tạo cơ sở tri thức mới cho AI"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Tên</Label>
+              <Label>Tên *</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => updateFormData({ name: e.target.value })}
-                placeholder="Tài liệu sản phẩm"
+                placeholder="VD: Tài liệu sản phẩm"
               />
             </div>
             <div className="space-y-2">
@@ -174,7 +226,8 @@ export default function KnowledgePage() {
                 onChange={(e) =>
                   updateFormData({ description: e.target.value })
                 }
-                placeholder="Chứa các tài liệu hướng dẫn sử dụng sản phẩm"
+                placeholder="Mô tả về knowledge base này..."
+                rows={3}
               />
             </div>
           </div>

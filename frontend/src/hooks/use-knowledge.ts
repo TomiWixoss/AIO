@@ -8,16 +8,15 @@ import { knowledgeApi, KnowledgeBase } from "@/lib/api";
 export interface KnowledgeFormData {
   name: string;
   description: string;
-  is_active: boolean;
 }
 
 const initialFormData: KnowledgeFormData = {
   name: "",
   description: "",
-  is_active: true,
 };
 
-export function useKnowledge() {
+// Hook for list page with CRUD dialog
+export function useKnowledgeList() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingKb, setEditingKb] = useState<KnowledgeBase | null>(null);
@@ -60,27 +59,32 @@ export function useKnowledge() {
     onError: () => toast.error("Lỗi xóa"),
   });
 
-  const openDialog = (kb?: KnowledgeBase) => {
-    if (kb) {
-      setEditingKb(kb);
-      setFormData({
-        name: kb.name,
-        description: kb.description,
-        is_active: kb.is_active,
-      });
-    } else {
-      setEditingKb(null);
-      setFormData(initialFormData);
-    }
+  const openCreateDialog = () => {
+    setEditingKb(null);
+    setFormData(initialFormData);
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (kb: KnowledgeBase) => {
+    setEditingKb(kb);
+    setFormData({
+      name: kb.name,
+      description: kb.description || "",
+    });
     setIsDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
     setEditingKb(null);
+    setFormData(initialFormData);
   };
 
   const handleSubmit = () => {
+    if (!formData.name.trim()) {
+      toast.error("Vui lòng nhập tên");
+      return;
+    }
     if (editingKb) {
       updateMutation.mutate({ id: editingKb.id, data: formData });
     } else {
@@ -96,21 +100,32 @@ export function useKnowledge() {
     setFormData((prev) => ({ ...prev, ...updates }));
   };
 
+  const handleDelete = (id: number) => {
+    if (confirm("Xác nhận xóa knowledge base này?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
   return {
     kbs,
     isLoading,
+    toggleActive,
+    handleDelete,
+    // Dialog state
     isDialogOpen,
     setIsDialogOpen,
     editingKb,
     formData,
     updateFormData,
-    openDialog,
+    openCreateDialog,
+    openEditDialog,
     closeDialog,
     handleSubmit,
-    toggleActive,
     isSubmitting: createMutation.isPending || updateMutation.isPending,
-    handleDelete: (id: number) => {
-      if (confirm("Xác nhận xóa?")) deleteMutation.mutate(id);
-    },
   };
+}
+
+// Legacy export
+export function useKnowledge() {
+  return useKnowledgeList();
 }
