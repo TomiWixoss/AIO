@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Plus,
@@ -14,7 +14,8 @@ import {
   Globe,
   Lock,
   Zap,
-  Play,
+  Send,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
@@ -57,8 +58,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useChatbots } from "@/hooks";
+import { useChatbots, Chatbot } from "@/hooks";
 import { modelsApi, toolsApi, knowledgeApi } from "@/lib/api";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export default function ChatbotsPage() {
   const {
@@ -83,6 +91,13 @@ export default function ChatbotsPage() {
     generateSlug,
   } = useChatbots();
 
+  // Test chat state
+  const [testChatbot, setTestChatbot] = useState<Chatbot | null>(null);
+  const [testMessages, setTestMessages] = useState<ChatMessage[]>([]);
+  const [testInput, setTestInput] = useState("");
+  const [testLoading, setTestLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const { data: modelsData } = useQuery({
     queryKey: ["models"],
     queryFn: () => modelsApi.getAll(),
@@ -102,9 +117,6 @@ export default function ChatbotsPage() {
   const tools = toolsData?.data?.data || [];
   const knowledgeBases = knowledgeData?.data?.data || [];
 
-  const providers = [
-    ...new Set(models.map((m) => m.provider_name).filter(Boolean)),
-  ] as string[];
   const filteredModels = formData.provider_id
     ? models.filter((m) => m.provider_id === formData.provider_id)
     : models;
@@ -113,6 +125,63 @@ export default function ChatbotsPage() {
     navigator.clipboard.writeText(text);
     toast.success("Đã copy!");
   };
+
+  // Test chat functions
+  const openTestChat = (chatbot: Chatbot) => {
+    setTestChatbot(chatbot);
+    setTestMessages(
+      chatbot.welcome_message
+        ? [{ role: "assistant", content: chatbot.welcome_message }]
+        : []
+    );
+    setTestInput("");
+  };
+
+  const closeTestChat = () => {
+    setTestChatbot(null);
+    setTestMessages([]);
+  };
+
+  const sendTestMessage = async () => {
+    if (!testInput.trim() || testLoading || !testChatbot) return;
+
+    const userMessage = testInput;
+    setTestInput("");
+    setTestMessages((prev) => [
+      ...prev,
+      { role: "user", content: userMessage },
+    ]);
+    setTestLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/chatbots/${testChatbot.id}/test-chat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userMessage }),
+        }
+      );
+
+      const data = await response.json();
+      if (data.choices?.[0]?.message?.content) {
+        setTestMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.choices[0].message.content },
+        ]);
+      } else if (data.error) {
+        toast.error(data.error);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Lỗi gửi tin nhắn");
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [testMessages]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -226,6 +295,14 @@ export default function ChatbotsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openTestChat(chatbot)}
+                            title="Test chat"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -684,6 +761,62 @@ export default function ChatbotsPage() {
               ))}
             </Tabs>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog test chat */}
+      <Dialog open={!!testChatbot} onOpenChange={() => closeTestChat()}>
+        <DialogContent className="max-w-lg h-[600px] flex flex-col p-0">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              Test: {testChatbot?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4">
+              {testMessages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex ${
+                    msg.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              {testLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-muted rounded-lg px-4 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+
+          <div className="p-4 border-t flex gap-2">
+            <Input
+              value={testInput}
+              onChange={(e) => setTestInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendTestMessage()}
+              placeholder={testChatbot?.placeholder_text || "Nhập tin nhắn..."}
+              disabled={testLoading}
+            />
+            <Button onClick={sendTestMessage} disabled={testLoading}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

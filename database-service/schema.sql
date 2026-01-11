@@ -113,34 +113,7 @@ CREATE TABLE chat_messages (
     FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL
 );
 
--- 8. usage_logs - Log sử dụng
-CREATE TABLE usage_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    log_type ENUM('llm', 'tool') NOT NULL DEFAULT 'llm',
-    session_id INT,
-    provider_id INT,
-    tool_id INT,
-    api_key_id INT,
-    model_id INT,
-    prompt_tokens INT DEFAULT 0,
-    completion_tokens INT DEFAULT 0,
-    input_params JSON,
-    response_data JSON,
-    latency_ms INT,
-    status VARCHAR(20) NOT NULL,
-    error_message TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE SET NULL,
-    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL,
-    FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE SET NULL,
-    FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE SET NULL,
-    FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE SET NULL,
-    INDEX idx_usage_provider (provider_id, created_at),
-    INDEX idx_usage_tool (tool_id, created_at),
-    INDEX idx_usage_session (session_id, created_at)
-);
-
--- 9. knowledge_bases - Knowledge bases cho RAG
+-- 8. knowledge_bases - Knowledge bases cho RAG
 CREATE TABLE knowledge_bases (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -151,7 +124,7 @@ CREATE TABLE knowledge_bases (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 11. chatbots - Cấu hình chatbot
+-- 9. chatbots - Cấu hình chatbot
 CREATE TABLE chatbots (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -192,7 +165,7 @@ CREATE TABLE chatbots (
 );
 
 
--- 10. knowledge_items - Dữ liệu trong knowledge base
+-- 10. knowledge_items (cuối cùng) - Dữ liệu trong knowledge base
 CREATE TABLE knowledge_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     knowledge_base_id INT NOT NULL,

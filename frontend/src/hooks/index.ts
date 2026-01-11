@@ -4,6 +4,5 @@ export * from "./use-providers";
 export * from "./use-admins";
 export * from "./use-tools";
 export * from "./use-knowledge";
-export * from "./use-stats";
 export * from "./use-api-keys";
 export * from "./use-chatbots";

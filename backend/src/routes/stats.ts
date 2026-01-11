@@ -8,31 +8,60 @@ export const statsRoutes = Router();
 
 statsRoutes.use(authMiddleware);
 
-// GET /stats - Overall statistics
+// GET /stats - Thống kê tổng quan từ các bảng
 statsRoutes.get(
   "/",
   asyncHandler(async (_req: any, res: any) => {
-    const stats = await dbGet("/usage-logs/stats");
-    return ok(res, stats);
-  })
-);
+    // Lấy số lượng từ các bảng
+    const [
+      providers,
+      models,
+      tools,
+      apiKeys,
+      chatbots,
+      knowledgeBases,
+      sessions,
+    ] = await Promise.all([
+      dbGet<any[]>("/providers").catch(() => []),
+      dbGet<any[]>("/models").catch(() => []),
+      dbGet<any[]>("/tools").catch(() => []),
+      dbGet<any[]>("/api-keys/all").catch(() => []),
+      dbGet<any[]>("/chatbots").catch(() => []),
+      dbGet<any[]>("/knowledge-bases").catch(() => []),
+      dbGet<any[]>("/chat-sessions").catch(() => []),
+    ]);
 
-// GET /stats/today
-statsRoutes.get(
-  "/today",
-  asyncHandler(async (_req: any, res: any) => {
-    const stats = await dbGet("/usage-logs/stats/today");
-    return ok(res, stats);
-  })
-);
+    const stats = {
+      providers: {
+        total: providers.length,
+        active: providers.filter((p: any) => p.is_active).length,
+      },
+      models: {
+        total: models.length,
+        active: models.filter((m: any) => m.is_active).length,
+      },
+      tools: {
+        total: tools.length,
+        active: tools.filter((t: any) => t.is_active).length,
+      },
+      api_keys: {
+        total: apiKeys.length,
+        active: apiKeys.filter((k: any) => k.is_active).length,
+      },
+      chatbots: {
+        total: chatbots.length,
+        active: chatbots.filter((c: any) => c.is_active).length,
+        public: chatbots.filter((c: any) => c.is_public).length,
+      },
+      knowledge_bases: {
+        total: knowledgeBases.length,
+        active: knowledgeBases.filter((kb: any) => kb.is_active).length,
+      },
+      chat_sessions: {
+        total: sessions.length,
+      },
+    };
 
-// GET /stats/logs - Usage logs
-statsRoutes.get(
-  "/logs",
-  asyncHandler(async (req: any, res: any) => {
-    const limit = req.query.limit || 100;
-    const page = req.query.page || 1;
-    const logs = await dbGet(`/usage-logs?limit=${limit}&page=${page}`);
-    return ok(res, logs);
+    return ok(res, stats);
   })
 );

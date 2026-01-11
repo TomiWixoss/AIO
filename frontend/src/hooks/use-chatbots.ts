@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { chatbotsApi, Chatbot } from "@/lib/api";
 
+export type { Chatbot } from "@/lib/api";
+
 export interface ChatbotFormData {
   name: string;
   slug: string;
