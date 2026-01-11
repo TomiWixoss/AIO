@@ -107,7 +107,7 @@ export default function ModelsPage() {
               chế độ Auto.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-auto">
             {isLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
@@ -118,11 +118,13 @@ export default function ModelsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Model ID</TableHead>
-                    <TableHead>Tên hiển thị</TableHead>
+                    <TableHead className="min-w-[200px]">Model ID</TableHead>
+                    <TableHead className="min-w-[150px]">
+                      Tên hiển thị
+                    </TableHead>
                     <TableHead>Provider</TableHead>
-                    <TableHead>Context</TableHead>
-                    <TableHead className="text-center">
+                    <TableHead className="text-right">Context</TableHead>
+                    <TableHead className="text-center w-[100px]">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>Ưu tiên</TooltipTrigger>
@@ -132,30 +134,37 @@ export default function ModelsPage() {
                         </Tooltip>
                       </TooltipProvider>
                     </TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
+                    <TableHead className="w-[80px]">Trạng thái</TableHead>
+                    <TableHead className="text-right w-[80px]">
+                      Thao tác
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedModels.map((model) => (
                     <TableRow key={model.id}>
-                      <TableCell className="font-mono text-sm">
-                        {model.model_id}
+                      <TableCell>
+                        <code
+                          className="text-xs bg-muted px-1.5 py-0.5 rounded truncate block max-w-[250px]"
+                          title={model.model_id}
+                        >
+                          {model.model_id}
+                        </code>
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium truncate max-w-[200px]">
                         {model.display_name}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs">
                           {model.provider_name ||
                             getProviderName(model.provider_id)}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {model.context_length?.toLocaleString() || "N/A"}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-0.5">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -166,7 +175,7 @@ export default function ModelsPage() {
                           >
                             <ArrowUp className="h-3 w-3" />
                           </Button>
-                          <span className="w-8 text-center font-mono text-sm">
+                          <span className="w-6 text-center font-mono text-xs">
                             {model.priority || 0}
                           </span>
                           <Button
@@ -190,21 +199,25 @@ export default function ModelsPage() {
                           onCheckedChange={() => toggleActive(model)}
                         />
                       </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openDialog(model)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(model.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openDialog(model)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDelete(model.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

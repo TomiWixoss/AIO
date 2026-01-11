@@ -135,6 +135,12 @@ export function useChatbots() {
   };
 
   const handleSubmit = () => {
+    // Validate required fields
+    if (!formData.name.trim() || !formData.slug.trim()) {
+      toast.error("Vui lòng nhập tên và slug cho chatbot");
+      return;
+    }
+
     if (editingChatbot) {
       updateMutation.mutate({ id: editingChatbot.id, data: formData });
     } else {
