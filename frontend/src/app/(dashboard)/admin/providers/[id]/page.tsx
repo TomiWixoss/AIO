@@ -230,7 +230,6 @@ export default function ProviderDetailPage({
                     <TableHeader>
                       <TableRow>
                         <TableHead>Tên</TableHead>
-                        <TableHead>Ưu tiên</TableHead>
                         <TableHead>Sử dụng hôm nay</TableHead>
                         <TableHead>Giới hạn</TableHead>
                         <TableHead>Lỗi</TableHead>
@@ -244,11 +243,10 @@ export default function ProviderDetailPage({
                           <TableCell className="font-medium">
                             {key.name}
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{key.priority}</Badge>
-                          </TableCell>
                           <TableCell>{key.requests_today || 0}</TableCell>
-                          <TableCell>{key.daily_limit || "∞"}</TableCell>
+                          <TableCell>
+                            {key.daily_limit || "Không giới hạn"}
+                          </TableCell>
                           <TableCell>
                             {key.last_error && (
                               <TooltipProvider>
