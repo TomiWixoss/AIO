@@ -68,7 +68,7 @@ export default function ChatPage() {
 
   const handleSelectChatbot = (chatbot: Chatbot) => {
     setSelectedChatbot(chatbot);
-    setSessionKey(null); // Reset session khi đổi chatbot
+    setSessionKey(crypto.randomUUID()); // Tạo session_key mới khi chọn chatbot
     setMessages(
       chatbot.welcome_message
         ? [
@@ -118,7 +118,6 @@ export default function ChatPage() {
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
         let fullContent = "";
-        let newSessionKey = sessionKey;
 
         if (reader) {
           while (true) {
@@ -135,13 +134,6 @@ export default function ChatPage() {
 
                 try {
                   const parsed = JSON.parse(data);
-
-                  // Lấy session_key từ response đầu tiên
-                  if (parsed.session_key && !newSessionKey) {
-                    newSessionKey = parsed.session_key;
-                    setSessionKey(newSessionKey);
-                  }
-
                   const content = parsed.choices?.[0]?.delta?.content || "";
                   if (content) {
                     fullContent += content;
@@ -164,11 +156,6 @@ export default function ChatPage() {
         setStreamingContent("");
       } else {
         const data = await response.json();
-
-        // Lưu session_key
-        if (data.session_key) {
-          setSessionKey(data.session_key);
-        }
 
         if (data.choices?.[0]?.message?.content) {
           setMessages((prev) => [
@@ -194,7 +181,7 @@ export default function ChatPage() {
   };
 
   const clearChat = () => {
-    setSessionKey(null); // Reset session
+    setSessionKey(crypto.randomUUID()); // Tạo session mới
     if (selectedChatbot?.welcome_message) {
       setMessages([
         {

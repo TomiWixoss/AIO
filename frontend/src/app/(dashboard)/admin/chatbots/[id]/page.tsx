@@ -196,13 +196,14 @@ export default function ChatbotEditorPage() {
   };
 
   // Code samples
-  const curlCode = `curl -X POST "${API_URL}/chatbots/public/${slug}/chat" \\
+  const curlCode = `# Tạo session_key bất kỳ (UUID hoặc string) để giữ history
+curl -X POST "${API_URL}/chatbots/public/${slug}/chat" \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${apiKey}" \\
-  -d '{"message": "Xin chào!", "session_key": "my-session-123"}'`;
+  -d '{"message": "Xin chào!", "session_key": "user-123-session-abc"}'`;
 
-  const fetchCode = `// Chatbot với session để giữ history
-let sessionKey = null;
+  const fetchCode = `// Tạo session_key 1 lần để giữ history cho cuộc trò chuyện
+const sessionKey = crypto.randomUUID(); // hoặc bất kỳ string nào
 
 async function sendMessage(message) {
   const response = await fetch("${API_URL}/chatbots/public/${slug}/chat", {
@@ -215,21 +216,17 @@ async function sendMessage(message) {
   });
 
   const data = await response.json();
-  
-  // Lưu session_key để giữ history cho lần sau
-  if (data.session_key) {
-    sessionKey = data.session_key;
-  }
-  
   return data.choices[0].message.content;
 }
 
-// Ví dụ: AI sẽ nhớ tên bạn
+// Ví dụ: AI sẽ nhớ tên bạn vì cùng session_key
 await sendMessage("Tên tôi là An");
-await sendMessage("Tên tôi là gì?"); // AI sẽ trả lời "An"`;
+await sendMessage("Tên tôi là gì?"); // AI sẽ trả lời "An"
 
-  const streamCode = `// Streaming với session để giữ history
-let sessionKey = null;
+// Muốn chat mới? Tạo session_key mới`;
+
+  const streamCode = `// Streaming với session_key để giữ history
+const sessionKey = crypto.randomUUID();
 
 async function sendMessageStream(message, onChunk) {
   const response = await fetch("${API_URL}/chatbots/public/${slug}/chat", {
@@ -254,10 +251,6 @@ async function sendMessageStream(message, onChunk) {
     for (const line of lines) {
       try {
         const data = JSON.parse(line.slice(6));
-        // Lưu session_key từ chunk đầu tiên
-        if (data.session_key && !sessionKey) {
-          sessionKey = data.session_key;
-        }
         if (data.choices?.[0]?.delta?.content) {
           onChunk(data.choices[0].delta.content);
         }
