@@ -2,16 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Send,
-  Save,
-  Loader2,
-  Copy,
-  Check,
-  X,
-  Plus,
-} from "lucide-react";
+import { ArrowLeft, Send, Save, Loader2, Copy, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -31,12 +21,12 @@ import {
 import { cn } from "@/lib/utils";
 import { toolsApi } from "@/lib/api";
 
-// Method colors giống Postman
 const METHOD_COLORS: Record<string, string> = {
   GET: "bg-green-600 hover:bg-green-700",
   POST: "bg-yellow-600 hover:bg-yellow-700",
   PUT: "bg-blue-600 hover:bg-blue-700",
   DELETE: "bg-red-600 hover:bg-red-700",
+  PATCH: "bg-purple-600 hover:bg-purple-700",
 };
 
 // Types
@@ -127,7 +117,7 @@ const paramsToJson = (rows: ParamRow[]): Record<string, any> | null => {
   return Object.keys(obj).length ? obj : null;
 };
 
-// Key-Value Table Component (giống Postman)
+// Key-Value Table Component
 function KeyValueTable({
   rows,
   onChange,
@@ -139,19 +129,14 @@ function KeyValueTable({
 }) {
   const update = (id: string, field: keyof KeyValueRow, val: any) => {
     const newRows = rows.map((r) => (r.id === id ? { ...r, [field]: val } : r));
-    // Auto add row
     if (newRows[newRows.length - 1]?.key) newRows.push(emptyKV());
     onChange(newRows);
   };
-
-  const remove = (id: string) => {
-    if (rows.length <= 1) return;
-    onChange(rows.filter((r) => r.id !== id));
-  };
+  const remove = (id: string) =>
+    rows.length > 1 && onChange(rows.filter((r) => r.id !== id));
 
   return (
-    <div className="border rounded-md overflow-hidden">
-      {/* Header */}
+    <div className="border rounded-md">
       <div className="grid grid-cols-[40px_1fr_1fr_1fr_40px] bg-muted/50 text-xs font-medium text-muted-foreground border-b">
         <div className="p-2"></div>
         <div className="p-2 border-l">KEY</div>
@@ -159,13 +144,12 @@ function KeyValueTable({
         <div className="p-2 border-l">DESCRIPTION</div>
         <div className="p-2 border-l"></div>
       </div>
-      {/* Rows */}
       {rows.map((row, idx) => (
         <div
           key={row.id}
           className="grid grid-cols-[40px_1fr_1fr_1fr_40px] border-b last:border-b-0 group"
         >
-          <div className="p-1 flex items-center justify-center">
+          <div className="p-2 flex items-center justify-center">
             <input
               type="checkbox"
               checked={row.enabled}
@@ -213,7 +197,7 @@ function KeyValueTable({
   );
 }
 
-// Parameters Table (cho AI params)
+// Parameters Table
 function ParamsTable({
   rows,
   onChange,
@@ -226,19 +210,16 @@ function ParamsTable({
     if (newRows[newRows.length - 1]?.key) newRows.push(emptyParam());
     onChange(newRows);
   };
-
-  const remove = (id: string) => {
-    if (rows.length <= 1) return;
-    onChange(rows.filter((r) => r.id !== id));
-  };
+  const remove = (id: string) =>
+    rows.length > 1 && onChange(rows.filter((r) => r.id !== id));
 
   return (
-    <div className="border rounded-md overflow-hidden">
+    <div className="border rounded-md">
       <div className="grid grid-cols-[1fr_100px_1fr_80px_40px] bg-muted/50 text-xs font-medium text-muted-foreground border-b">
         <div className="p-2">PARAMETER NAME</div>
         <div className="p-2 border-l">TYPE</div>
         <div className="p-2 border-l">DESCRIPTION</div>
-        <div className="p-2 border-l">REQUIRED</div>
+        <div className="p-2 border-l text-center">REQUIRED</div>
         <div className="p-2 border-l"></div>
       </div>
       {rows.map((row, idx) => (
@@ -275,7 +256,7 @@ function ParamsTable({
             <Input
               value={row.description}
               onChange={(e) => update(row.id, "description", e.target.value)}
-              placeholder="Mô tả tham số"
+              placeholder="Mô tả"
               className="border-0 rounded-none h-9 text-sm focus-visible:ring-0"
             />
           </div>
@@ -310,7 +291,6 @@ export default function ToolEditorPage() {
   const isNew = params.id === "new";
   const toolId = isNew ? null : Number(params.id);
 
-  // Form state
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
@@ -319,20 +299,17 @@ export default function ToolEditorPage() {
   const [url, setUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
 
-  // Tabs data
   const [aiParams, setAiParams] = useState<ParamRow[]>([emptyParam()]);
   const [queryParams, setQueryParams] = useState<KeyValueRow[]>([emptyKV()]);
   const [headers, setHeaders] = useState<KeyValueRow[]>([emptyKV()]);
   const [body, setBody] = useState("");
   const [responseMapping, setResponseMapping] = useState("");
 
-  // Test state
   const [testParams, setTestParams] = useState<Record<string, string>>({});
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Load tool data
   useEffect(() => {
     if (toolId) {
       toolsApi
@@ -362,15 +339,13 @@ export default function ToolEditorPage() {
           router.push("/admin/tools");
         });
     }
-  }, [toolId]);
+  }, [toolId, router]);
 
-  // Save
   const handleSave = async () => {
     if (!name || !description || !url) {
       toast.error("Vui lòng điền đầy đủ thông tin");
       return;
     }
-
     setSaving(true);
     try {
       const data: any = {
@@ -385,7 +360,6 @@ export default function ToolEditorPage() {
         body_template: body ? JSON.parse(body) : null,
         response_mapping: responseMapping ? JSON.parse(responseMapping) : null,
       };
-
       if (toolId) {
         await toolsApi.update(toolId, data);
         toast.success("Đã lưu!");
@@ -401,13 +375,11 @@ export default function ToolEditorPage() {
     }
   };
 
-  // Test API
   const handleTest = async () => {
     if (!toolId) {
       toast.error("Lưu tool trước khi test");
       return;
     }
-
     setTesting(true);
     setTestResult(null);
     try {
@@ -426,7 +398,6 @@ export default function ToolEditorPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Get testable params
   const testableParams = aiParams.filter((p) => p.key);
 
   if (loading) {
@@ -476,10 +447,10 @@ export default function ToolEditorPage() {
         </Button>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Description */}
-        <div className="px-4 py-3 border-b">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-6xl mx-auto p-4 space-y-4">
+          {/* Description */}
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -487,169 +458,137 @@ export default function ToolEditorPage() {
             className="resize-none"
             rows={2}
           />
-        </div>
 
-        {/* URL Bar - giống Postman */}
-        <div className="px-4 py-3 border-b flex gap-2">
-          <Select value={method} onValueChange={setMethod}>
-            <SelectTrigger
-              className={cn(
-                "w-[120px] font-bold text-white",
-                METHOD_COLORS[method]
-              )}
+          {/* URL Bar */}
+          <div className="flex gap-2">
+            <Select value={method} onValueChange={setMethod}>
+              <SelectTrigger
+                className={cn(
+                  "w-[120px] font-bold text-white",
+                  METHOD_COLORS[method]
+                )}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GET">GET</SelectItem>
+                <SelectItem value="POST">POST</SelectItem>
+                <SelectItem value="PUT">PUT</SelectItem>
+                <SelectItem value="DELETE">DELETE</SelectItem>
+                <SelectItem value="PATCH">PATCH</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://api.example.com/endpoint/{{param}}"
+              className="flex-1 font-mono"
+            />
+            <Button
+              onClick={handleTest}
+              disabled={testing || !toolId}
+              className="px-6"
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="GET">GET</SelectItem>
-              <SelectItem value="POST">POST</SelectItem>
-              <SelectItem value="PUT">PUT</SelectItem>
-              <SelectItem value="DELETE">DELETE</SelectItem>
-              <SelectItem value="PATCH">PATCH</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://api.example.com/endpoint/{{param}}"
-            className="flex-1 font-mono"
-          />
-          <Button
-            onClick={handleTest}
-            disabled={testing || !toolId}
-            className="px-6"
-          >
-            {testing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4 mr-2" />
-            )}
-            Send
-          </Button>
-        </div>
-
-        {/* Tabs + Response - chia đôi màn hình */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Request Tabs */}
-          <div className="flex-1 overflow-hidden border-b">
-            <Tabs defaultValue="params" className="h-full flex flex-col">
-              <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-10 px-4">
-                <TabsTrigger
-                  value="params"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-                >
-                  Params{" "}
-                  {aiParams.filter((p) => p.key).length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {aiParams.filter((p) => p.key).length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="query"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-                >
-                  Query{" "}
-                  {queryParams.filter((p) => p.key).length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {queryParams.filter((p) => p.key).length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="headers"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-                >
-                  Headers{" "}
-                  {headers.filter((h) => h.key).length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {headers.filter((h) => h.key).length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="body"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-                >
-                  Body
-                </TabsTrigger>
-                <TabsTrigger
-                  value="mapping"
-                  className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-                >
-                  Response Mapping
-                </TabsTrigger>
-              </TabsList>
-
-              <ScrollArea className="flex-1">
-                <div className="p-4">
-                  <TabsContent value="params" className="m-0">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Định nghĩa các tham số mà AI cần truyền khi gọi tool. Dùng{" "}
-                      {"{{param}}"} trong URL/Body để reference.
-                    </p>
-                    <ParamsTable rows={aiParams} onChange={setAiParams} />
-                  </TabsContent>
-
-                  <TabsContent value="query" className="m-0">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Query parameters sẽ được thêm vào URL dạng ?key=value
-                    </p>
-                    <KeyValueTable
-                      rows={queryParams}
-                      onChange={setQueryParams}
-                      placeholders={{ key: "Parameter", value: "Value" }}
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="headers" className="m-0">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      HTTP Headers cho request
-                    </p>
-                    <KeyValueTable
-                      rows={headers}
-                      onChange={setHeaders}
-                      placeholders={{ key: "Header", value: "Value" }}
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="body" className="m-0">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Request body cho POST/PUT (JSON format)
-                    </p>
-                    <Textarea
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
-                      placeholder={
-                        '{\n  "name": "{{name}}",\n  "email": "{{email}}"\n}'
-                      }
-                      className="font-mono text-sm min-h-[200px]"
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="mapping" className="m-0">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Map response để AI hiểu kết quả (JSONPath syntax)
-                    </p>
-                    <Textarea
-                      value={responseMapping}
-                      onChange={(e) => setResponseMapping(e.target.value)}
-                      placeholder={
-                        '{\n  "status": "$.data.status",\n  "message": "$.data.message"\n}'
-                      }
-                      className="font-mono text-sm min-h-[150px]"
-                    />
-                  </TabsContent>
-                </div>
-              </ScrollArea>
-            </Tabs>
+              {testing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send
+                </>
+              )}
+            </Button>
           </div>
 
+          {/* Request Tabs */}
+          <Tabs defaultValue="params">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="params">
+                Params{" "}
+                {testableParams.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {testableParams.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="query">
+                Query{" "}
+                {queryParams.filter((p) => p.key).length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {queryParams.filter((p) => p.key).length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="headers">
+                Headers{" "}
+                {headers.filter((h) => h.key).length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {headers.filter((h) => h.key).length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="body">Body</TabsTrigger>
+              <TabsTrigger value="mapping">Response Mapping</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="params" className="mt-4">
+              <p className="text-sm text-muted-foreground mb-3">
+                Định nghĩa các tham số mà AI cần truyền khi gọi tool. Dùng{" "}
+                {"{{param}}"} trong URL/Body.
+              </p>
+              <ParamsTable rows={aiParams} onChange={setAiParams} />
+            </TabsContent>
+            <TabsContent value="query" className="mt-4">
+              <p className="text-sm text-muted-foreground mb-3">
+                Query parameters sẽ được thêm vào URL dạng ?key=value
+              </p>
+              <KeyValueTable
+                rows={queryParams}
+                onChange={setQueryParams}
+                placeholders={{ key: "Parameter", value: "Value" }}
+              />
+            </TabsContent>
+            <TabsContent value="headers" className="mt-4">
+              <p className="text-sm text-muted-foreground mb-3">
+                HTTP Headers cho request
+              </p>
+              <KeyValueTable
+                rows={headers}
+                onChange={setHeaders}
+                placeholders={{ key: "Header", value: "Value" }}
+              />
+            </TabsContent>
+            <TabsContent value="body" className="mt-4">
+              <p className="text-sm text-muted-foreground mb-3">
+                Request body cho POST/PUT (JSON format)
+              </p>
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={
+                  '{\n  "name": "{{name}}",\n  "email": "{{email}}"\n}'
+                }
+                className="font-mono text-sm min-h-[200px]"
+              />
+            </TabsContent>
+            <TabsContent value="mapping" className="mt-4">
+              <p className="text-sm text-muted-foreground mb-3">
+                Map response để AI hiểu kết quả (JSONPath syntax)
+              </p>
+              <Textarea
+                value={responseMapping}
+                onChange={(e) => setResponseMapping(e.target.value)}
+                placeholder={'{\n  "status": "$.data.status"\n}'}
+                className="font-mono text-sm min-h-[150px]"
+              />
+            </TabsContent>
+          </Tabs>
+
           {/* Response Section */}
-          <div className="h-[40%] min-h-[200px] flex flex-col border-t">
-            <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-b">
+          <div className="border rounded-lg">
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
               <div className="flex items-center gap-3">
-                <span className="font-medium text-sm">Response</span>
+                <span className="font-medium">Response</span>
                 {testResult?.status && (
                   <Badge
                     variant="outline"
@@ -679,14 +618,14 @@ export default function ToolEditorPage() {
               )}
             </div>
 
-            {/* Test Params Input */}
+            {/* Test Params */}
             {testableParams.length > 0 && !testResult && (
-              <div className="p-4 border-b bg-muted/20">
-                <p className="text-sm font-medium mb-2">Test Parameters</p>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="p-4 border-b bg-muted/10">
+                <p className="text-sm font-medium mb-3">Test Parameters</p>
+                <div className="grid grid-cols-2 gap-3">
                   {testableParams.map((p) => (
                     <div key={p.id} className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground w-24 truncate">
+                      <span className="text-sm text-muted-foreground w-28 truncate">
                         {p.key}
                         {p.required && <span className="text-red-500">*</span>}
                       </span>
@@ -708,71 +647,58 @@ export default function ToolEditorPage() {
             )}
 
             {/* Response Body */}
-            <ScrollArea className="flex-1">
-              <div className="p-4">
-                {testing ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : testResult ? (
-                  <div className="space-y-3">
-                    {testResult.error ? (
-                      <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md">
-                        <pre className="text-sm text-red-600 whitespace-pre-wrap">
-                          {testResult.error}
-                        </pre>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Response Tabs */}
-                        <Tabs defaultValue="body">
-                          <TabsList className="h-8">
-                            <TabsTrigger value="body" className="text-xs h-6">
-                              Body
-                            </TabsTrigger>
-                            <TabsTrigger
-                              value="headers"
-                              className="text-xs h-6"
-                            >
-                              Headers
-                            </TabsTrigger>
-                            <TabsTrigger
-                              value="request"
-                              className="text-xs h-6"
-                            >
-                              Request
-                            </TabsTrigger>
-                          </TabsList>
-                          <TabsContent value="body" className="mt-2">
-                            <pre className="p-3 bg-muted/50 rounded-md text-xs font-mono whitespace-pre-wrap overflow-auto max-h-[300px]">
-                              {JSON.stringify(testResult.data, null, 2)}
-                            </pre>
-                          </TabsContent>
-                          <TabsContent value="headers" className="mt-2">
-                            <pre className="p-3 bg-muted/50 rounded-md text-xs font-mono whitespace-pre-wrap">
-                              {JSON.stringify(testResult.headers, null, 2)}
-                            </pre>
-                          </TabsContent>
-                          <TabsContent value="request" className="mt-2">
-                            <pre className="p-3 bg-muted/50 rounded-md text-xs font-mono whitespace-pre-wrap">
-                              {JSON.stringify(testResult.request, null, 2)}
-                            </pre>
-                          </TabsContent>
-                        </Tabs>
-                      </>
-                    )}
+            <div className="p-4 min-h-[200px]">
+              {testing ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : testResult ? (
+                testResult.error ? (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md">
+                    <pre className="text-sm text-red-600 whitespace-pre-wrap">
+                      {testResult.error}
+                    </pre>
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Send className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Click Send để test API</p>
-                    {!toolId && (
-                      <p className="text-xs mt-1">Lưu tool trước khi test</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
+                  <Tabs defaultValue="body">
+                    <TabsList className="h-8">
+                      <TabsTrigger value="body" className="text-xs h-6">
+                        Body
+                      </TabsTrigger>
+                      <TabsTrigger value="headers" className="text-xs h-6">
+                        Headers
+                      </TabsTrigger>
+                      <TabsTrigger value="request" className="text-xs h-6">
+                        Request
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="body" className="mt-2">
+                      <pre className="p-3 bg-muted/50 rounded-md text-xs font-mono whitespace-pre-wrap max-h-[400px] overflow-auto">
+                        {JSON.stringify(testResult.data, null, 2)}
+                      </pre>
+                    </TabsContent>
+                    <TabsContent value="headers" className="mt-2">
+                      <pre className="p-3 bg-muted/50 rounded-md text-xs font-mono whitespace-pre-wrap">
+                        {JSON.stringify(testResult.headers, null, 2)}
+                      </pre>
+                    </TabsContent>
+                    <TabsContent value="request" className="mt-2">
+                      <pre className="p-3 bg-muted/50 rounded-md text-xs font-mono whitespace-pre-wrap">
+                        {JSON.stringify(testResult.request, null, 2)}
+                      </pre>
+                    </TabsContent>
+                  </Tabs>
+                )
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Send className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Click Send để test API</p>
+                  {!toolId && (
+                    <p className="text-xs mt-1">Lưu tool trước khi test</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
