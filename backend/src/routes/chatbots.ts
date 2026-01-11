@@ -254,6 +254,11 @@ chatbotRoutes.post("/public/:slug/chat", async (req, res) => {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
+      // Gửi session_key ngay đầu stream để client lưu lại
+      res.write(
+        `data: ${JSON.stringify({ session_key: session.session_key })}\n\n`
+      );
+
       const controller = streamManager.register(
         session.session_key,
         session.id,
@@ -417,6 +422,11 @@ chatbotRoutes.post("/:id/test-chat", async (req, res) => {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
+
+      // Gửi session_key ngay đầu stream để client lưu lại
+      res.write(
+        `data: ${JSON.stringify({ session_key: session.session_key })}\n\n`
+      );
 
       const controller = streamManager.register(
         session.session_key,

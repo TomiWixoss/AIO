@@ -199,43 +199,69 @@ export default function ChatbotEditorPage() {
   const curlCode = `curl -X POST "${API_URL}/chatbots/public/${slug}/chat" \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${apiKey}" \\
-  -d '{"message": "Xin chào!"}'`;
+  -d '{"message": "Xin chào!", "session_key": "my-session-123"}'`;
 
-  const fetchCode = `const response = await fetch("${API_URL}/chatbots/public/${slug}/chat", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "X-API-Key": "${apiKey}"
-  },
-  body: JSON.stringify({ message: "Xin chào!" })
-});
+  const fetchCode = `// Chatbot với session để giữ history
+let sessionKey = null;
 
-const data = await response.json();
-console.log(data.choices[0].message.content);`;
+async function sendMessage(message) {
+  const response = await fetch("${API_URL}/chatbots/public/${slug}/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": "${apiKey}"
+    },
+    body: JSON.stringify({ message, session_key: sessionKey })
+  });
 
-  const streamCode = `const response = await fetch("${API_URL}/chatbots/public/${slug}/chat", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "X-API-Key": "${apiKey}"
-  },
-  body: JSON.stringify({ message: "Xin chào!", stream: true })
-});
-
-const reader = response.body.getReader();
-const decoder = new TextDecoder();
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
+  const data = await response.json();
   
-  const chunk = decoder.decode(value);
-  const lines = chunk.split("\\n").filter(line => line.startsWith("data: "));
+  // Lưu session_key để giữ history cho lần sau
+  if (data.session_key) {
+    sessionKey = data.session_key;
+  }
   
-  for (const line of lines) {
-    const data = JSON.parse(line.slice(6));
-    if (data.choices?.[0]?.delta?.content) {
-      process.stdout.write(data.choices[0].delta.content);
+  return data.choices[0].message.content;
+}
+
+// Ví dụ: AI sẽ nhớ tên bạn
+await sendMessage("Tên tôi là An");
+await sendMessage("Tên tôi là gì?"); // AI sẽ trả lời "An"`;
+
+  const streamCode = `// Streaming với session để giữ history
+let sessionKey = null;
+
+async function sendMessageStream(message, onChunk) {
+  const response = await fetch("${API_URL}/chatbots/public/${slug}/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": "${apiKey}"
+    },
+    body: JSON.stringify({ message, session_key: sessionKey, stream: true })
+  });
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    const chunk = decoder.decode(value);
+    const lines = chunk.split("\\n").filter(line => line.startsWith("data: "));
+    
+    for (const line of lines) {
+      try {
+        const data = JSON.parse(line.slice(6));
+        // Lưu session_key từ chunk đầu tiên
+        if (data.session_key && !sessionKey) {
+          sessionKey = data.session_key;
+        }
+        if (data.choices?.[0]?.delta?.content) {
+          onChunk(data.choices[0].delta.content);
+        }
+      } catch {}
     }
   }
 }`;
