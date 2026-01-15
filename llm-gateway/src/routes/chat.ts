@@ -54,13 +54,8 @@ chatRouter.post(
       }
 
       if (body.stream) {
-        // Stream mode - không hỗ trợ tool loop, chỉ stream 1 lần
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-        await withRetry(() =>
-          ProviderFactory.streamChatCompletion({ ...body, messages }, res)
-        );
+        // Stream mode với tool execution
+        await handleStreamWithTools(body, messages, toolConfigs, res);
       } else {
         // Non-stream với tool execution loop
         await handleNonStreamWithTools(body, messages, toolConfigs, res);
@@ -131,4 +126,89 @@ async function handleNonStreamWithTools(
     ProviderFactory.chatCompletion({ ...body, messages: currentMessages })
   );
   res.json(response);
+}
+
+// Handle streaming with tool execution
+async function handleStreamWithTools(
+  body: ChatCompletionRequest,
+  messages: Message[],
+  toolConfigs: ToolConfig[],
+  res: Response
+) {
+  let currentMessages = [...messages];
+  let iterations = 0;
+
+  // Execute tool loop in background (non-streaming)
+  while (iterations < MAX_TOOL_ITERATIONS) {
+    iterations++;
+
+    const { response } = await withRetry(() =>
+      ProviderFactory.chatCompletion({ ...body, messages: currentMessages })
+    );
+
+    const assistantContent = response.choices[0]?.message?.content || "";
+
+    // Check tool calls
+    if (toolConfigs.length > 0) {
+      const toolCalls = parseToolCalls(assistantContent);
+
+      if (toolCalls && toolCalls.length > 0) {
+        logger.info("Tool calls detected in stream mode", {
+          count: toolCalls.length,
+          iteration: iterations,
+        });
+
+        // Thêm assistant message
+        currentMessages.push({ role: "assistant", content: assistantContent });
+
+        // Execute tools
+        const results: string[] = [];
+        for (const call of toolCalls) {
+          logger.info("Executing tool", {
+            name: call.name,
+            params: call.params,
+          });
+          const result = await executeTool(call.name, call.params, toolConfigs);
+          results.push(formatToolResult(call.name, result));
+        }
+
+        // Thêm tool results như user message
+        currentMessages.push({
+          role: "user",
+          content: results.join("\n\n"),
+        });
+
+        continue; // Loop lại để gọi model với tool results
+      }
+    }
+
+    // Không có tool call - stream final response
+    logger.info("Streaming final response", { iterations });
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    await withRetry(() =>
+      ProviderFactory.streamChatCompletion(
+        { ...body, messages: currentMessages },
+        res
+      )
+    );
+    return;
+  }
+
+  // Max iterations reached - stream final response
+  logger.warn("Max tool iterations reached in stream mode");
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  await withRetry(() =>
+    ProviderFactory.streamChatCompletion(
+      { ...body, messages: currentMessages },
+      res
+    )
+  );
 }
