@@ -112,18 +112,7 @@ CREATE TABLE chat_messages (
     FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL
 );
 
--- 8. knowledge_bases - Knowledge bases cho RAG
-CREATE TABLE knowledge_bases (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT,
-    collection_id INT,                             -- ID của collection trong vector-service
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- 9. chatbots - Cấu hình chatbot
+-- 8. chatbots - Cấu hình chatbot
 CREATE TABLE chatbots (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -140,9 +129,7 @@ CREATE TABLE chatbots (
     temperature DECIMAL(3,2) DEFAULT 0.7,
     max_tokens INT DEFAULT 2048,
     
-    -- Features
     tool_ids JSON,                                -- Array of tool IDs: [1, 2, 3]
-    knowledge_base_ids JSON,                      -- Array of KB IDs: [1, 2]
     
     -- Appearance
     welcome_message TEXT,
@@ -164,14 +151,3 @@ CREATE TABLE chatbots (
 );
 
 
--- 10. knowledge_items (cuối cùng) - Dữ liệu trong knowledge base
-CREATE TABLE knowledge_items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    knowledge_base_id INT NOT NULL,
-    content TEXT NOT NULL,
-    metadata JSON,
-    vector_doc_id INT,                             -- ID document trong vector-service (tự động tạo)
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (knowledge_base_id) REFERENCES knowledge_bases(id) ON DELETE CASCADE,
-    INDEX idx_knowledge_items_kb (knowledge_base_id)
-);

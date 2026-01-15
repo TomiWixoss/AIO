@@ -30,7 +30,6 @@ docker-compose up -d --build
 | MySQL            | 3306 | Database     |
 | Database Service | 5000 | Database API |
 | LLM Gateway      | 3000 | LLM routing  |
-| Vector Service   | 6000 | Vector DB    |
 | Backend          | 4000 | Main API     |
 | Frontend         | 3001 | Web UI       |
 

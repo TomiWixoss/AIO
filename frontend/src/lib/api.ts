@@ -75,15 +75,7 @@ export interface Tool {
   is_active: boolean;
 }
 
-export interface KnowledgeBase {
-  id: number;
-  name: string;
-  description: string;
-  is_active: boolean;
-  item_count?: number;
-  items_count?: number; // from list query
-  collection_id?: string;
-}
+
 
 export interface Chatbot {
   id: number;
@@ -100,7 +92,6 @@ export interface Chatbot {
   temperature: number;
   max_tokens: number;
   tool_ids: number[] | null;
-  knowledge_base_ids: number[] | null;
   welcome_message: string;
   placeholder_text: string;
   is_public: boolean;
@@ -200,30 +191,7 @@ export const toolsApi = {
     api.post<{ success: boolean; data: any }>(`/tools/${id}/test`, { params }),
 };
 
-// Knowledge Bases API
-export const knowledgeApi = {
-  getAll: () =>
-    api.get<{ success: boolean; data: KnowledgeBase[] }>("/knowledge-bases"),
-  getActive: () =>
-    api.get<{ success: boolean; data: KnowledgeBase[] }>(
-      "/knowledge-bases/active"
-    ),
-  getById: (id: number) =>
-    api.get<{ success: boolean; data: KnowledgeBase }>(
-      `/knowledge-bases/${id}`
-    ),
-  create: (data: Partial<KnowledgeBase>) => api.post("/knowledge-bases", data),
-  update: (id: number, data: Partial<KnowledgeBase>) =>
-    api.put(`/knowledge-bases/${id}`, data),
-  delete: (id: number) => api.delete(`/knowledge-bases/${id}`),
-  getItems: (id: number) => api.get(`/knowledge-bases/${id}/items`),
-  addItem: (id: number, data: any) =>
-    api.post(`/knowledge-bases/${id}/items`, data),
-  deleteItem: (kbId: number, itemId: number) =>
-    api.delete(`/knowledge-bases/${kbId}/items/${itemId}`),
-  search: (id: number, query: string, limit?: number) =>
-    api.post(`/knowledge-bases/${id}/search`, { query, limit: limit || 5 }),
-};
+
 
 // Chat API
 export const chatApi = {

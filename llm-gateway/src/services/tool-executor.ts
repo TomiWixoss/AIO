@@ -1,21 +1,15 @@
 import { executeCustomApiTool } from "../tools/custom-api.js";
 import type { ToolConfig, ToolResult } from "../tools/custom-api.js";
 export type { ToolConfig, ToolResult };
-import {
-  searchKnowledge,
-  knowledgeSearchToolDefinition,
-} from "../tools/knowledge-search.js";
 import { dbGet } from "../utils/db-client.js";
 import { decryptApiKey } from "../utils/encryption.js";
 import { logger } from "../utils/logger.js";
 
-// Built-in tools
-const BUILTIN_TOOLS = {
-  search_knowledge: {
-    execute: searchKnowledge,
-    definition: knowledgeSearchToolDefinition,
-  },
-};
+// Built-in tools (empty after removing knowledge search)
+const BUILTIN_TOOLS: Record<
+  string,
+  { execute: (params: any) => Promise<any>; definition: any }
+> = {};
 
 interface ToolRow {
   id: number;

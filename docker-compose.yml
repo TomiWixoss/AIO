@@ -66,29 +66,6 @@ services:
     networks:
       - llm-network
 
-  # Vector Service
-  vector-service:
-    build:
-      context: .
-      dockerfile: vector-service/Dockerfile
-    container_name: llm-vector-service
-    restart: unless-stopped
-    environment:
-      PORT: 6000
-      DATABASE_SERVICE_URL: http://database-service:5000
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      EMBEDDING_MODEL: gemini-embedding-001
-      EMBEDDING_DIMENSIONS: 768
-      DB_PATH: /app/data/vectors.db
-    ports:
-      - "6000:6000"
-    volumes:
-      - vector_data:/app/data
-    depends_on:
-      - database-service
-    networks:
-      - llm-network
-
   # Backend API
   backend:
     build:
@@ -102,13 +79,11 @@ services:
       JWT_EXPIRES_IN: 7d
       DATABASE_SERVICE_URL: http://database-service:5000
       LLM_GATEWAY_URL: http://llm-gateway:3000
-      VECTOR_SERVICE_URL: http://vector-service:6000
     ports:
       - "4000:4000"
     depends_on:
       - database-service
       - llm-gateway
-      - vector-service
     networks:
       - llm-network
 
@@ -130,7 +105,6 @@ services:
 
 volumes:
   mysql_data:
-  vector_data:
 
 networks:
   llm-network:

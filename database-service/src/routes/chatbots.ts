@@ -118,7 +118,6 @@ chatbotRoutes.post(
       temperature = 0.7,
       max_tokens = 2048,
       tool_ids,
-      knowledge_base_ids,
       welcome_message,
       placeholder_text,
       is_public = false,
@@ -135,9 +134,9 @@ chatbotRoutes.post(
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO chatbots (
         name, slug, description, provider_id, model_id, auto_mode,
-        system_prompt, temperature, max_tokens, tool_ids, knowledge_base_ids,
+        system_prompt, temperature, max_tokens, tool_ids,
         welcome_message, placeholder_text, is_public, api_key, allowed_origins
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
         slug,
@@ -149,7 +148,6 @@ chatbotRoutes.post(
         temperature,
         max_tokens,
         tool_ids ? JSON.stringify(tool_ids) : null,
-        knowledge_base_ids ? JSON.stringify(knowledge_base_ids) : null,
         welcome_message,
         placeholder_text || "Nhập tin nhắn...",
         is_public,
@@ -177,7 +175,6 @@ chatbotRoutes.put(
       temperature,
       max_tokens,
       tool_ids,
-      knowledge_base_ids,
       welcome_message,
       placeholder_text,
       is_public,
@@ -227,10 +224,6 @@ chatbotRoutes.put(
     if (tool_ids !== undefined) {
       updates.push("tool_ids = ?");
       values.push(JSON.stringify(tool_ids));
-    }
-    if (knowledge_base_ids !== undefined) {
-      updates.push("knowledge_base_ids = ?");
-      values.push(JSON.stringify(knowledge_base_ids));
     }
     if (welcome_message !== undefined) {
       updates.push("welcome_message = ?");

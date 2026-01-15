@@ -7,7 +7,6 @@ import {
   Database,
   Users,
   Wrench,
-  BookOpen,
   LogOut,
   Moon,
   Sun,
@@ -35,7 +34,6 @@ const menuItems = [
   { title: "Chatbot Builder", icon: Blocks, href: "/admin/chatbots" },
   { title: "Providers", icon: Database, href: "/admin/providers" },
   { title: "Tools", icon: Wrench, href: "/admin/tools" },
-  { title: "Knowledge Base", icon: BookOpen, href: "/admin/knowledge" },
   { title: "Quản trị viên", icon: Users, href: "/admin/users" },
 ];
 

@@ -22,7 +22,6 @@ interface Chatbot {
   temperature: number;
   max_tokens: number;
   tool_ids: number[] | string | null;
-  knowledge_base_ids: number[] | string | null;
   welcome_message: string;
   placeholder_text: string;
   is_public: boolean;
@@ -51,10 +50,6 @@ function parseChatbot(chatbot: Chatbot): Chatbot {
       typeof chatbot.tool_ids === "string"
         ? JSON.parse(chatbot.tool_ids)
         : chatbot.tool_ids,
-    knowledge_base_ids:
-      typeof chatbot.knowledge_base_ids === "string"
-        ? JSON.parse(chatbot.knowledge_base_ids)
-        : chatbot.knowledge_base_ids,
     allowed_origins:
       typeof chatbot.allowed_origins === "string"
         ? JSON.parse(chatbot.allowed_origins)

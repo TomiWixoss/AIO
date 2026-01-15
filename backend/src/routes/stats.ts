@@ -18,7 +18,6 @@ statsRoutes.get(
       tools,
       apiKeys,
       chatbots,
-      knowledgeBases,
       sessions,
     ] = await Promise.all([
       dbGet<any[]>("/providers").catch(() => []),
@@ -26,7 +25,6 @@ statsRoutes.get(
       dbGet<any[]>("/tools").catch(() => []),
       dbGet<any[]>("/api-keys").catch(() => []),
       dbGet<any[]>("/chatbots").catch(() => []),
-      dbGet<any[]>("/knowledge-bases").catch(() => []),
       dbGet<any[]>("/chat-sessions").catch(() => []),
     ]);
 
@@ -52,10 +50,6 @@ statsRoutes.get(
         active: chatbots.filter((c: any) => c.is_active).length,
         public: chatbots.filter((c: any) => c.is_public).length,
       },
-      knowledge_bases: {
-        total: knowledgeBases.length,
-        active: knowledgeBases.filter((kb: any) => kb.is_active).length,
-      },
       chat_sessions: {
         total: sessions.length,
       },
@@ -64,3 +58,4 @@ statsRoutes.get(
     return ok(res, stats);
   })
 );
+

@@ -10,7 +10,6 @@ import { apiKeyRoutes } from "./routes/api-keys.js";
 import { modelRoutes } from "./routes/models.js";
 import { chatSessionRoutes } from "./routes/chat-sessions.js";
 import { chatMessageRoutes } from "./routes/chat-messages.js";
-import { knowledgeBaseRoutes } from "./routes/knowledge-bases.js";
 import { chatbotRoutes } from "./routes/chatbots.js";
 
 dotenv.config();
@@ -29,7 +28,6 @@ app.use("/api-keys", apiKeyRoutes);
 app.use("/models", modelRoutes);
 app.use("/chat-sessions", chatSessionRoutes);
 app.use("/chat-messages", chatMessageRoutes);
-app.use("/knowledge-bases", knowledgeBaseRoutes);
 app.use("/chatbots", chatbotRoutes);
 
 // Health check

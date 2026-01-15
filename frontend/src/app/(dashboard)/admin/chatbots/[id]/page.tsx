@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { chatbotsApi, modelsApi, toolsApi, knowledgeApi } from "@/lib/api";
+import { chatbotsApi, modelsApi, toolsApi } from "@/lib/api";
 
 export default function ChatbotEditorPage() {
   const params = useParams();
@@ -58,7 +58,6 @@ export default function ChatbotEditorPage() {
   const [providerId, setProviderId] = useState<number | null>(null);
   const [modelId, setModelId] = useState<number | null>(null);
   const [toolIds, setToolIds] = useState<number[]>([]);
-  const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<number[]>([]);
   const [isPublic, setIsPublic] = useState(false);
   const [allowedOrigins, setAllowedOrigins] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
@@ -75,14 +74,8 @@ export default function ChatbotEditorPage() {
     queryFn: () => toolsApi.getAll(),
   });
 
-  const { data: knowledgeData } = useQuery({
-    queryKey: ["knowledge"],
-    queryFn: () => knowledgeApi.getAll(),
-  });
-
   const models = modelsData?.data?.data || [];
   const tools = toolsData?.data?.data || [];
-  const knowledgeBases = knowledgeData?.data?.data || [];
 
   const filteredModels = providerId
     ? models.filter((m) => m.provider_id === providerId)
@@ -117,7 +110,6 @@ export default function ChatbotEditorPage() {
           setProviderId(c.provider_id);
           setModelId(c.model_id);
           setToolIds(c.tool_ids || []);
-          setKnowledgeBaseIds(c.knowledge_base_ids || []);
           setIsPublic(c.is_public);
           setAllowedOrigins(c.allowed_origins || []);
           setIsActive(c.is_active);
@@ -151,7 +143,6 @@ export default function ChatbotEditorPage() {
         provider_id: autoMode ? null : providerId,
         model_id: autoMode ? null : modelId,
         tool_ids: toolIds,
-        knowledge_base_ids: knowledgeBaseIds,
         is_public: isPublic,
         allowed_origins: allowedOrigins,
         is_active: isActive,
@@ -346,9 +337,9 @@ async function sendMessageStream(message, onChunk) {
               <TabsTrigger value="model">Model</TabsTrigger>
               <TabsTrigger value="features">
                 Features
-                {(toolIds.length > 0 || knowledgeBaseIds.length > 0) && (
+                {toolIds.length > 0 && (
                   <Badge variant="secondary" className="ml-1">
-                    {toolIds.length + knowledgeBaseIds.length}
+                    {toolIds.length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -540,45 +531,6 @@ async function sendMessageStream(message, onChunk) {
                           </span>
                           <p className="text-xs text-muted-foreground">
                             {tool.description}
-                          </p>
-                        </div>
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label className="mb-2 block">Knowledge Bases</Label>
-                <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
-                  {knowledgeBases.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      Chưa có knowledge base nào
-                    </p>
-                  ) : (
-                    knowledgeBases.map((kb) => (
-                      <label
-                        key={kb.id}
-                        className="flex items-start gap-3 p-2 rounded hover:bg-muted cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={knowledgeBaseIds.includes(kb.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setKnowledgeBaseIds([...knowledgeBaseIds, kb.id]);
-                            } else {
-                              setKnowledgeBaseIds(
-                                knowledgeBaseIds.filter((id) => id !== kb.id)
-                              );
-                            }
-                          }}
-                          className="mt-1 rounded"
-                        />
-                        <div>
-                          <span className="text-sm font-medium">{kb.name}</span>
-                          <p className="text-xs text-muted-foreground">
-                            {kb.description}
                           </p>
                         </div>
                       </label>
