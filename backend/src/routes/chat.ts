@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { dbGet, dbPost, dbDelete } from "../utils/db-client.js";
+import { dbGet, dbPost, dbDelete, dbPut } from "../utils/db-client.js";
 import {
   chatCompletion,
   chatCompletionStream,
@@ -284,7 +284,7 @@ chatRoutes.post("/", async (req, res) => {
 chatRoutes.get("/sessions", async (_req, res) => {
   try {
     const sessions = await dbGet("/chat-sessions");
-    res.json(sessions);
+    res.json({ success: true, data: sessions });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -297,7 +297,52 @@ chatRoutes.get("/sessions/:key", async (req, res) => {
       `/chat-sessions/key/${req.params.key}`
     );
     const messages = await dbGet(`/chat-messages/session/${session.id}`);
-    res.json({ ...session, messages });
+    res.json({ success: true, data: { ...session, messages } });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /chat/sessions/:key - Update session title
+chatRoutes.put("/sessions/:key", async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title) {
+      return res.status(400).json({ error: "Title is required" });
+    }
+
+    const session = await dbGet<Session>(
+      `/chat-sessions/key/${req.params.key}`
+    );
+
+    // Update via database service
+    await dbPut(`/chat-sessions/${session.id}`, { title });
+
+    res.json({ success: true, message: "Session updated" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /chat/sessions/:key - Delete session
+chatRoutes.delete("/sessions/:key", async (req, res) => {
+  try {
+    const session = await dbGet<Session>(
+      `/chat-sessions/key/${req.params.key}`
+    );
+
+    // Delete messages first
+    const messages = await dbGet<DBMessage[]>(
+      `/chat-messages/session/${session.id}`
+    );
+    for (const msg of messages) {
+      await dbDelete(`/chat-messages/${msg.id}`).catch(() => {});
+    }
+
+    // Delete session
+    await dbDelete(`/chat-sessions/${session.id}`);
+
+    res.json({ success: true, message: "Session deleted" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

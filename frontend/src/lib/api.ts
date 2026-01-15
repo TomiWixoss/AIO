@@ -75,8 +75,6 @@ export interface Tool {
   is_active: boolean;
 }
 
-
-
 export interface Chatbot {
   id: number;
   name: string;
@@ -191,8 +189,6 @@ export const toolsApi = {
     api.post<{ success: boolean; data: any }>(`/tools/${id}/test`, { params }),
 };
 
-
-
 // Chat API
 export const chatApi = {
   send: (data: {
@@ -211,6 +207,9 @@ export const chatApi = {
       success: boolean;
       data: ChatSession & { messages: ChatMessage[] };
     }>(`/chat/sessions/${key}`),
+  updateSession: (key: string, data: { title: string }) =>
+    api.put(`/chat/sessions/${key}`, data),
+  deleteSession: (key: string) => api.delete(`/chat/sessions/${key}`),
   cancel: (sessionKey: string) => api.post(`/chat/cancel/${sessionKey}`),
   regenerate: (messageId: number, stream?: boolean) =>
     api.post(`/chat/regenerate/${messageId}`, { stream }),
