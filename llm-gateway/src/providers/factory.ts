@@ -338,7 +338,7 @@ export class ProviderFactory {
   }
 
   /**
-   * Direct stream (không auto)
+   * Direct stream (không auto) - có key rotation
    */
   private static async directStreamChatCompletion(
     request: ChatCompletionRequest,
@@ -364,14 +364,48 @@ export class ProviderFactory {
 
     const apiKey = await decryptApiKey(key.credentials_encrypted);
 
-    try {
-      await providerInstance.streamChatCompletion(request, res, apiKey);
-      await incrementKeyUsage(key.id);
-      return { keyId: key.id };
-    } catch (error: any) {
-      await markKeyError(key.id, error.message);
-      throw error;
+    // Key rotation cho streaming
+    const triedKeyIds = new Set<number>();
+    let currentKey = key;
+    let currentApiKey = apiKey;
+
+    while (triedKeyIds.size < 30) {
+      triedKeyIds.add(currentKey.id);
+
+      try {
+        await providerInstance.streamChatCompletion(request, res, currentApiKey);
+        await incrementKeyUsage(currentKey.id);
+        return { keyId: currentKey.id };
+      } catch (error: any) {
+        const errorMsg = error.message || "";
+        const shouldRotate =
+          errorMsg.includes("rate") ||
+          errorMsg.includes("limit") ||
+          errorMsg.includes("429") ||
+          errorMsg.includes("403") ||
+          errorMsg.includes("leaked") ||
+          errorMsg.includes("PERMISSION_DENIED");
+
+        await markKeyError(currentKey.id, errorMsg, shouldRotate);
+
+        // Chỉ rotate nếu chưa gửi headers (chưa bắt đầu stream)
+        if (shouldRotate && !res.headersSent) {
+          logger.warn(`Key ${currentKey.id} failed, trying next key for stream`, {
+            error: errorMsg.substring(0, 100),
+          });
+          const nextKey = await getActiveKey(provider.id);
+          if (nextKey && !triedKeyIds.has(nextKey.id)) {
+            currentKey = nextKey;
+            currentApiKey = await decryptApiKey(nextKey.credentials_encrypted);
+            continue;
+          }
+        }
+
+        throw error;
+      }
     }
+
+    throw new GatewayError(503, "All API keys exhausted for streaming");
   }
 
   static getAllProviders(): Provider[] {

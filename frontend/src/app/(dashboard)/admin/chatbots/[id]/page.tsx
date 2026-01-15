@@ -500,7 +500,7 @@ async function sendMessageStream(message, onChunk) {
             <TabsContent value="features" className="mt-4 space-y-4">
               <div>
                 <Label className="mb-2 block">Tools (API tùy chỉnh)</Label>
-                <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                <div className="border rounded-lg p-3 space-y-2">
                   {tools.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       Chưa có tool nào
