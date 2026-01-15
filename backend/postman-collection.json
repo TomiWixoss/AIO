@@ -1,55 +1,141 @@
 {
   "info": {
-    "name": "LLM Gateway - Backend API",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "name": "LLM Gateway Backend API",
+    "description": "Complete API collection for LLM Gateway Backend Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:4000" },
-    { "key": "token", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "session_key",
+      "value": "",
+      "type": "string"
+    }
   ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
   "item": [
     {
-      "name": "Health",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": { "method": "GET", "url": "{{baseUrl}}/health" }
-        }
-      ]
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Check service health and configuration"
+      }
     },
     {
       "name": "Auth",
       "item": [
         {
           "name": "Register (First Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('token', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "url": "{{baseUrl}}/auth/register",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@localhost\",\n  \"password\": \"admin123\",\n  \"name\": \"Admin\"\n}"
-            }
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"admin123\",\n  \"name\": \"Admin User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register first admin (only works if no admin exists)"
           }
         },
         {
           "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('token', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "url": "{{baseUrl}}/auth/login",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@localhost\",\n  \"password\": \"admin123\"\n}"
-            }
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login and get JWT token"
           }
         },
         {
-          "name": "Get Me",
+          "name": "Get Current User",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/auth/me",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Get current authenticated user info"
           }
         }
       ]
@@ -61,30 +147,44 @@
           "name": "Get All Admins",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/admins",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admins",
+              "host": ["{{baseUrl}}"],
+              "path": ["admins"]
+            }
           }
         },
         {
           "name": "Get Admin by ID",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/admins/1",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admins/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admins", "1"]
+            }
           }
         },
         {
           "name": "Create Admin",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/admins",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin2@localhost\",\n  \"password\": \"admin123\",\n  \"name\": \"Admin 2\"\n}"
+              "raw": "{\n  \"email\": \"newadmin@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"New Admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admins",
+              "host": ["{{baseUrl}}"],
+              "path": ["admins"]
             }
           }
         },
@@ -92,14 +192,20 @@
           "name": "Update Admin",
           "request": {
             "method": "PUT",
-            "url": "{{baseUrl}}/admins/1",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Admin\"\n}"
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"password\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admins/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admins", "1"]
             }
           }
         },
@@ -107,8 +213,12 @@
           "name": "Delete Admin",
           "request": {
             "method": "DELETE",
-            "url": "{{baseUrl}}/admins/2",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admins/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["admins", "1"]
+            }
           }
         }
       ]
@@ -120,45 +230,44 @@
           "name": "Get All Providers",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/providers",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers"]
+            }
           }
         },
         {
           "name": "Get Provider by ID",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/providers/1",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
-          }
-        },
-        {
-          "name": "Create Provider - OpenRouter",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/providers",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"openrouter\",\n  \"display_name\": \"OpenRouter\",\n  \"base_url\": \"https://openrouter.ai/api/v1\",\n  \"priority\": 100,\n  \"free_tier_info\": \"30+ free models\"\n}"
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers", "1"]
             }
           }
         },
         {
-          "name": "Create Provider - Google AI",
+          "name": "Create Provider",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/providers",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"google-ai\",\n  \"display_name\": \"Google AI Studio\",\n  \"base_url\": \"https://generativelanguage.googleapis.com\",\n  \"priority\": 90,\n  \"free_tier_info\": \"1,500 req/day\"\n}"
+              "raw": "{\n  \"name\": \"openai\",\n  \"display_name\": \"OpenAI\",\n  \"api_endpoint\": \"https://api.openai.com/v1\",\n  \"requires_api_key\": true,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers"]
             }
           }
         },
@@ -166,14 +275,20 @@
           "name": "Update Provider",
           "request": {
             "method": "PUT",
-            "url": "{{baseUrl}}/providers/1",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"display_name\": \"OpenRouter Updated\",\n  \"is_active\": true,\n  \"priority\": 100\n}"
+              "raw": "{\n  \"display_name\": \"OpenAI Updated\",\n  \"is_active\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/providers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers", "1"]
             }
           }
         },
@@ -181,59 +296,12 @@
           "name": "Delete Provider",
           "request": {
             "method": "DELETE",
-            "url": "{{baseUrl}}/providers/1",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Provider Keys",
-      "item": [
-        {
-          "name": "Get Keys by Provider",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/provider-keys/provider/1",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
-          }
-        },
-        {
-          "name": "Create Key - Google AI",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/provider-keys",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"provider_id\": 2,\n  \"api_key\": \"AIzaSyDSl3ipTnBOASJzZdlPqbLsKQCGtPAmppo\",\n  \"name\": \"Google AI Key 1\",\n  \"priority\": 100,\n  \"daily_limit\": 1500\n}"
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers", "1"]
             }
-          }
-        },
-        {
-          "name": "Update Key",
-          "request": {
-            "method": "PUT",
-            "url": "{{baseUrl}}/provider-keys/1",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Key\",\n  \"is_active\": true,\n  \"priority\": 90,\n  \"daily_limit\": 2000\n}"
-            }
-          }
-        },
-        {
-          "name": "Delete Key",
-          "request": {
-            "method": "DELETE",
-            "url": "{{baseUrl}}/provider-keys/1",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
           }
         }
       ]
@@ -245,30 +313,44 @@
           "name": "Get All Models",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/models",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/models",
+              "host": ["{{baseUrl}}"],
+              "path": ["models"]
+            }
           }
         },
         {
           "name": "Get Models by Provider",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/models/provider/1",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/models/provider/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["models", "provider", "1"]
+            }
           }
         },
         {
-          "name": "Create Model - Gemini 2.0 Flash",
+          "name": "Create Model",
           "request": {
             "method": "POST",
-            "url": "{{baseUrl}}/models",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"provider_id\": 2,\n  \"model_id\": \"gemini-2.0-flash\",\n  \"display_name\": \"Gemini 2.0 Flash\",\n  \"context_length\": 1000000,\n  \"is_fallback\": true\n}"
+              "raw": "{\n  \"provider_id\": 1,\n  \"model_id\": \"gpt-4\",\n  \"display_name\": \"GPT-4\",\n  \"supports_tools\": true,\n  \"supports_streaming\": true,\n  \"is_active\": true,\n  \"priority\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/models",
+              "host": ["{{baseUrl}}"],
+              "path": ["models"]
             }
           }
         },
@@ -276,14 +358,20 @@
           "name": "Update Model",
           "request": {
             "method": "PUT",
-            "url": "{{baseUrl}}/models/1",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"display_name\": \"Updated Model\",\n  \"is_active\": true,\n  \"is_fallback\": false\n}"
+              "raw": "{\n  \"display_name\": \"GPT-4 Updated\",\n  \"is_active\": false,\n  \"priority\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/models/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["models", "1"]
             }
           }
         },
@@ -291,8 +379,478 @@
           "name": "Delete Model",
           "request": {
             "method": "DELETE",
-            "url": "{{baseUrl}}/models/1",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/models/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["models", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tools",
+      "item": [
+        {
+          "name": "Get All Tools",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tools",
+              "host": ["{{baseUrl}}"],
+              "path": ["tools"]
+            }
+          }
+        },
+        {
+          "name": "Get Active Tools",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tools/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["tools", "active"]
+            }
+          }
+        },
+        {
+          "name": "Get Tool by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tools/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["tools", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Tool",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"weather_api\",\n  \"display_name\": \"Weather API\",\n  \"description\": \"Get current weather for a location\",\n  \"endpoint_url\": \"https://api.weather.com/v1/current\",\n  \"http_method\": \"GET\",\n  \"requires_api_key\": true,\n  \"parameters_schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"location\": {\n        \"type\": \"string\",\n        \"description\": \"City name\"\n      }\n    },\n    \"required\": [\"location\"]\n  },\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tools",
+              "host": ["{{baseUrl}}"],
+              "path": ["tools"]
+            }
+          }
+        },
+        {
+          "name": "Test Tool",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"params\": {\n    \"location\": \"Hanoi\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tools/1/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["tools", "1", "test"]
+            },
+            "description": "Test tool execution with parameters"
+          }
+        },
+        {
+          "name": "Update Tool",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"Weather API Updated\",\n  \"is_active\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tools/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["tools", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Tool",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tools/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["tools", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "API Keys",
+      "item": [
+        {
+          "name": "Get Keys by Provider",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api-keys/provider/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-keys", "provider", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Keys by Tool",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api-keys/tool/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-keys", "tool", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Provider API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_id\": 1,\n  \"api_key\": \"sk-your-api-key-here\",\n  \"key_name\": \"Production Key\",\n  \"daily_limit\": 1000,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api-keys/provider",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-keys", "provider"]
+            }
+          }
+        },
+        {
+          "name": "Create Tool API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tool_id\": 1,\n  \"api_key\": \"your-tool-api-key\",\n  \"key_name\": \"Weather API Key\",\n  \"daily_limit\": 500,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api-keys/tool",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-keys", "tool"]
+            }
+          }
+        },
+        {
+          "name": "Update API Key",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key_name\": \"Updated Key Name\",\n  \"daily_limit\": 2000,\n  \"is_active\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api-keys/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-keys", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete API Key",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api-keys/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-keys", "1"]
+            }
+          }
+        },
+        {
+          "name": "Reset Daily Counts",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api-keys/reset-daily",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-keys", "reset-daily"]
+            },
+            "description": "Reset daily usage counts for all API keys"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chatbots",
+      "item": [
+        {
+          "name": "Get All Chatbots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chatbots",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots"]
+            }
+          }
+        },
+        {
+          "name": "Get Chatbot by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Public Chatbot by Slug",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/public/my-chatbot",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "public", "my-chatbot"]
+            },
+            "description": "Get public chatbot configuration (no auth required)"
+          }
+        },
+        {
+          "name": "Create Chatbot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Customer Support Bot\",\n  \"slug\": \"support-bot\",\n  \"description\": \"AI assistant for customer support\",\n  \"provider_id\": 1,\n  \"model_id\": 1,\n  \"auto_mode\": false,\n  \"system_prompt\": \"You are a helpful customer support assistant.\",\n  \"temperature\": 0.7,\n  \"max_tokens\": 2048,\n  \"tool_ids\": [1, 2],\n  \"welcome_message\": \"Hello! How can I help you today?\",\n  \"placeholder_text\": \"Type your message...\",\n  \"is_public\": true,\n  \"allowed_origins\": [\"https://example.com\"],\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chatbots",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots"]
+            }
+          }
+        },
+        {
+          "name": "Update Chatbot",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Support Bot\",\n  \"system_prompt\": \"You are an expert customer support assistant.\",\n  \"temperature\": 0.8,\n  \"is_active\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "1"]
+            }
+          }
+        },
+        {
+          "name": "Regenerate API Key",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/1/regenerate-key",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "1", "regenerate-key"]
+            },
+            "description": "Generate new API key for chatbot"
+          }
+        },
+        {
+          "name": "Delete Chatbot",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "1"]
+            }
+          }
+        },
+        {
+          "name": "Test Chat (Builder)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.session_key) {",
+                  "        pm.collectionVariables.set('session_key', response.session_key);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hello, how are you?\",\n  \"session_key\": \"{{session_key}}\",\n  \"stream\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/1/test-chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "1", "test-chat"]
+            },
+            "description": "Test chatbot in builder (with session history)"
+          }
+        },
+        {
+          "name": "Public Chat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.session_key) {",
+                  "        pm.collectionVariables.set('session_key', response.session_key);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "your-chatbot-api-key",
+                "description": "Required for private chatbots"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hello!\",\n  \"session_key\": \"{{session_key}}\",\n  \"stream\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/public/my-chatbot/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "public", "my-chatbot", "chat"]
+            },
+            "description": "Chat with public chatbot (with session history)"
+          }
+        },
+        {
+          "name": "Public Chat (Streaming)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Tell me a story\",\n  \"session_key\": \"{{session_key}}\",\n  \"stream\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/public/my-chatbot/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "public", "my-chatbot", "chat"]
+            },
+            "description": "Streaming chat with public chatbot"
+          }
+        },
+        {
+          "name": "Export Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chatbots/1/export-code",
+              "host": ["{{baseUrl}}"],
+              "path": ["chatbots", "1", "export-code"]
+            },
+            "description": "Get integration code examples (curl, JS, Python, React, HTML)"
           }
         }
       ]
@@ -302,25 +860,212 @@
       "item": [
         {
           "name": "Send Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.session_key) {",
+                  "        pm.collectionVariables.set('session_key', response.session_key);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "url": "{{baseUrl}}/chat",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"provider\": \"google-ai\",\n  \"model\": \"gemini-2.0-flash\",\n  \"message\": \"Hello!\",\n  \"session_key\": \"test-session-1\"\n}"
-            }
+              "raw": "{\n  \"provider\": \"google-ai\",\n  \"model\": \"gemini-2.0-flash\",\n  \"message\": \"What is the weather in Hanoi?\",\n  \"session_key\": \"{{session_key}}\",\n  \"system_prompt\": \"You are a helpful assistant.\",\n  \"temperature\": 0.7,\n  \"max_tokens\": 2048,\n  \"tool_ids\": [1],\n  \"auto_mode\": false,\n  \"stream\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            },
+            "description": "Send chat message with session history"
+          }
+        },
+        {
+          "name": "Send Message (Streaming)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google-ai\",\n  \"model\": \"gemini-2.0-flash\",\n  \"message\": \"Tell me a long story\",\n  \"session_key\": \"{{session_key}}\",\n  \"stream\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            },
+            "description": "Streaming chat response"
           }
         },
         {
           "name": "Get All Sessions",
-          "request": { "method": "GET", "url": "{{baseUrl}}/chat/sessions" }
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "sessions"]
+            },
+            "description": "Get all chat sessions"
+          }
         },
         {
-          "name": "Get Session by Key",
+          "name": "Get Session with Messages",
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
-            "url": "{{baseUrl}}/chat/sessions/test-session-1"
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/sessions/{{session_key}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "sessions", "{{session_key}}"]
+            },
+            "description": "Get session details with message history"
+          }
+        },
+        {
+          "name": "Update Session Title",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Weather Discussion\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/sessions/{{session_key}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "sessions", "{{session_key}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Session",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/sessions/{{session_key}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "sessions", "{{session_key}}"]
+            },
+            "description": "Delete session and all its messages"
+          }
+        },
+        {
+          "name": "Get Message by ID",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/messages/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "messages", "1"]
+            },
+            "description": "Get specific message content"
+          }
+        },
+        {
+          "name": "Regenerate Response",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stream\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/regenerate/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "regenerate", "1"]
+            },
+            "description": "Regenerate assistant response from a message ID"
+          }
+        },
+        {
+          "name": "Cancel Request",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/cancel/{{session_key}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "cancel", "{{session_key}}"]
+            },
+            "description": "Cancel active chat request for a session"
+          }
+        },
+        {
+          "name": "Get Active Streams",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/streams/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat", "streams", "active"]
+            },
+            "description": "Get all active streaming requests (admin)"
           }
         }
       ]
@@ -329,27 +1074,16 @@
       "name": "Stats",
       "item": [
         {
-          "name": "Get Overall Stats",
+          "name": "Get Statistics",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/stats",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
-          }
-        },
-        {
-          "name": "Get Today Stats",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/stats/today",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
-          }
-        },
-        {
-          "name": "Get Usage Logs",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/stats/logs?limit=50",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats"]
+            },
+            "description": "Get system statistics (providers, models, tools, API keys, chatbots, sessions)"
           }
         }
       ]
