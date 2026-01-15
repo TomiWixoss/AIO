@@ -567,7 +567,9 @@ export default function ChatPage() {
 
             {selectedChatbot && (
               <Badge variant="secondary" className="hidden sm:inline-flex">
-                {selectedChatbot.model_name}
+                {selectedChatbot.auto_mode
+                  ? "Auto"
+                  : selectedChatbot.model_name}
               </Badge>
             )}
           </div>
@@ -717,7 +719,9 @@ export default function ChatPage() {
             <div className="text-center mt-2">
               <p className="text-xs text-muted-foreground">
                 {selectedChatbot
-                  ? `Đang sử dụng model ${selectedChatbot.model_name}`
+                  ? selectedChatbot.auto_mode
+                    ? "Đang sử dụng chế độ tự động chọn model"
+                    : `Đang sử dụng model ${selectedChatbot.model_name}`
                   : "Hệ thống Chat AI"}
               </p>
             </div>
