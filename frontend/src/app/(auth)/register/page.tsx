@@ -47,7 +47,7 @@ export default function RegisterPage() {
           <Bot className="h-12 w-12 text-primary" />
         </div>
         <CardTitle className="text-2xl">Đăng ký</CardTitle>
-        <CardDescription>Tạo tài khoản quản trị viên đầu tiên</CardDescription>
+        <CardDescription>Tạo tài khoản quản trị viên</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">

@@ -54,7 +54,7 @@ authRoutes.post(
   })
 );
 
-// POST /auth/register (first admin only)
+// POST /auth/register
 authRoutes.post(
   "/register",
   asyncHandler(async (req: any, res: any) => {
@@ -62,12 +62,6 @@ authRoutes.post(
 
     if (!email || !password || !name) {
       throw BadRequest("Email, password and name are required");
-    }
-
-    // Check if any admin exists
-    const admins = await dbGet<Admin[]>("/admins");
-    if (admins.length > 0) {
-      throw Forbidden("Admin already exists. Use login.");
     }
 
     const password_hash = await bcrypt.hash(password, 10);
