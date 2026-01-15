@@ -13,7 +13,8 @@ services:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./llm_gateway_backup.sql:/docker-entrypoint-initdb.d/01-restore.sql
+      - ./database-service/init-db.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./llm_gateway_backup.sql:/docker-entrypoint-initdb.d/02-data.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
