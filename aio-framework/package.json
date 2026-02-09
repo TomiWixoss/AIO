@@ -1,0 +1,43 @@
+{
+  "name": "@aio/llm-framework",
+  "version": "1.0.0",
+  "description": "All-In-One LLM Framework - Multi-provider LLM integration with auto-fallback and priority management",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch examples/basic.ts",
+    "example:basic": "tsx examples/basic.ts",
+    "example:auto": "tsx examples/auto-mode.ts",
+    "example:priority": "tsx examples/priority.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "llm",
+    "ai",
+    "openrouter",
+    "google-ai",
+    "groq",
+    "cerebras",
+    "multi-provider",
+    "auto-fallback",
+    "chatbot"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.3",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "express": "^5.2.1",
+    "groq-sdk": "^0.37.0",
+    "openai": "^6.15.0",
+    "uuid": "^13.0.0"
+  }
+}
