@@ -248,3 +248,194 @@ MIT
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+
+## 🛑 Abort/Cancel Requests
+
+### Cancel Non-Streaming Request
+
+```typescript
+const controller = new AbortController();
+
+// Cancel after 5 seconds
+setTimeout(() => controller.abort(), 5000);
+
+try {
+  const response = await aio.chatCompletion({
+    provider: "openrouter",
+    model: "openrouter/pony-alpha",
+    messages: [{ role: "user", content: "Long task..." }],
+    signal: controller.signal, // Pass abort signal
+  });
+} catch (error) {
+  if (error.message.includes("cancel")) {
+    console.log("Request was cancelled");
+  }
+}
+```
+
+### Cancel Streaming Request
+
+```typescript
+const controller = new AbortController();
+
+const stream = await aio.chatCompletionStream({
+  provider: "openrouter",
+  model: "openrouter/pony-alpha",
+  messages: [{ role: "user", content: "Count to 100" }],
+  signal: controller.signal,
+});
+
+let chunks = 0;
+for await (const chunk of stream) {
+  chunks++;
+  if (chunks >= 10) {
+    controller.abort(); // Cancel after 10 chunks
+    break;
+  }
+}
+```
+
+### Pre-cancelled Request
+
+```typescript
+const controller = new AbortController();
+controller.abort(); // Cancel before calling
+
+try {
+  await aio.chatCompletion({
+    provider: "openrouter",
+    model: "openrouter/pony-alpha",
+    messages: [{ role: "user", content: "Test" }],
+    signal: controller.signal,
+  });
+} catch (error) {
+  console.log("Request was pre-cancelled");
+}
+```
+
+## 📊 Key Statistics
+
+```typescript
+// Get key stats for a provider
+const stats = aio.getKeyStats("openrouter");
+console.log(stats);
+// {
+//   total: 3,
+//   active: 2,
+//   disabled: 1,
+//   totalUsage: 150,
+//   totalErrors: 5
+// }
+
+// Reset daily counters (call this daily)
+aio.resetDailyCounters();
+
+// Get config summary
+const summary = aio.getConfigSummary();
+console.log(summary);
+// {
+//   providers: 2,
+//   totalKeys: 5,
+//   totalModels: 8,
+//   autoMode: true,
+//   maxRetries: 3
+// }
+```
+
+## 🔧 Configuration Options
+
+```typescript
+interface AIOConfig {
+  providers: ProviderConfig[];
+  autoMode?: boolean; // Default: false
+  maxRetries?: number; // Default: 3
+  retryDelay?: number; // Default: 1000ms
+  enableLogging?: boolean; // Default: true
+  enableValidation?: boolean; // Default: true
+}
+
+interface ApiKey {
+  key: string;
+  priority?: number; // Higher = preferred (default: 0)
+  isActive?: boolean; // Default: true
+  dailyLimit?: number; // Max requests per day
+  requestsToday?: number; // Current usage
+  errorCount?: number; // Consecutive errors
+  lastError?: string; // Last error message
+  lastUsed?: Date; // Last usage timestamp
+}
+```
+
+## 🎯 Error Classification
+
+Framework tự động phân loại lỗi:
+
+- **rate_limit**: Rate limit exceeded (retryable, rotate key)
+- **auth**: Authentication failed (not retryable, rotate key)
+- **invalid_request**: Bad request (not retryable, don't rotate)
+- **server**: Server error 5xx (retryable, don't rotate)
+- **network**: Network timeout (retryable, don't rotate)
+- **unknown**: Unknown error
+
+```typescript
+const errorInfo = AIOError.classify(error);
+console.log(errorInfo);
+// {
+//   isRetryable: true,
+//   shouldRotateKey: true,
+//   category: "rate_limit"
+// }
+```
+
+## 📁 Project Structure
+
+```
+aio-framework/
+├── src/
+│   ├── aio.ts                 # Main AIO class (284 lines)
+│   ├── types.ts               # TypeScript types
+│   ├── index.ts               # Public exports
+│   ├── core/                  # Core logic modules
+│   │   ├── auto-mode.ts       # Auto fallback logic
+│   │   ├── direct-mode.ts     # Direct mode with retry
+│   │   └── stream-handler.ts  # Streaming logic
+│   ├── providers/             # Provider implementations
+│   │   ├── base.ts
+│   │   ├── openrouter.ts
+│   │   ├── groq.ts
+│   │   ├── cerebras.ts
+│   │   └── google-ai.ts
+│   └── utils/                 # Utilities
+│       ├── logger.ts          # Winston logger
+│       ├── retry.ts           # Retry logic
+│       ├── validation.ts      # Zod schemas
+│       ├── key-manager.ts     # Key management
+│       └── abort-manager.ts   # Abort controller manager
+└── examples/
+    ├── basic.ts
+    ├── streaming.ts
+    ├── auto-mode.ts
+    ├── priority.ts
+    ├── test-simple.ts
+    ├── test-new-features.ts
+    └── test-abort-simple.ts
+```
+
+## 🧪 Testing
+
+```bash
+# Simple test
+npm run build
+npx tsx examples/test-simple.ts
+
+# Test all new features
+npx tsx examples/test-new-features.ts
+
+# Test abort functionality
+npx tsx examples/test-abort-simple.ts
+```
+
+## 📝 License
+
+MIT

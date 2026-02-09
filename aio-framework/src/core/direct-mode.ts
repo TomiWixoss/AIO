@@ -56,23 +56,45 @@ export class DirectModeHandler {
       triedKeys.add(keyObj.key);
 
       try {
-        // Wrap provider call với retry logic
-        const response = await withRetry(
-          () => providerInstance.chatCompletion(request, keyObj.key),
-          {
-            maxAttempts: maxRetries,
-            delayMs: retryDelay,
-            onRetry: (attempt, error) => {
-              if (enableLogging) {
-                logger.warn(`Retry attempt ${attempt}`, {
-                  provider,
-                  model,
-                  error: error.message?.substring(0, 100),
-                });
-              }
-            },
+        // Check if already aborted before starting
+        if (request.signal?.aborted) {
+          throw new Error("Request cancelled before execution");
+        }
+
+        // Create promise that rejects on abort
+        const abortPromise = new Promise<never>((_, reject) => {
+          if (request.signal) {
+            request.signal.addEventListener("abort", () => {
+              reject(new Error("Request cancelled"));
+            });
           }
-        );
+        });
+
+        // Race between actual request and abort
+        const response = await Promise.race([
+          withRetry(
+            async () => {
+              if (request.signal?.aborted) {
+                throw new Error("Request cancelled");
+              }
+              return await providerInstance.chatCompletion(request, keyObj.key);
+            },
+            {
+              maxAttempts: maxRetries,
+              delayMs: retryDelay,
+              onRetry: (attempt, error) => {
+                if (enableLogging) {
+                  logger.warn(`Retry attempt ${attempt}`, {
+                    provider,
+                    model,
+                    error: error.message?.substring(0, 100),
+                  });
+                }
+              },
+            }
+          ),
+          abortPromise,
+        ]);
 
         // Success - increment usage
         KeyManager.incrementUsage(keyObj);
@@ -88,6 +110,11 @@ export class DirectModeHandler {
 
         return response;
       } catch (error: any) {
+        // Check if it's a cancellation error
+        if (error.message?.includes("cancel")) {
+          throw error; // Don't retry on cancellation
+        }
+
         lastError = error;
         const errorInfo = AIOError.classify(error);
 

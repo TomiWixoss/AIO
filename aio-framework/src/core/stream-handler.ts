@@ -129,6 +129,18 @@ export class StreamHandler {
           headersSent: false,
         } as unknown as Response;
 
+        // Listen to abort signal
+        const abortHandler = () => {
+          stream.destroy(new Error("Stream cancelled by user"));
+          if (enableLogging) {
+            logger.info("Stream cancelled", { provider, model });
+          }
+        };
+
+        if (request.signal) {
+          request.signal.addEventListener("abort", abortHandler);
+        }
+
         // Start streaming với retry
         await withRetry(
           () => providerInstance.streamChatCompletion(request, mockRes, keyObj.key),
@@ -139,6 +151,11 @@ export class StreamHandler {
         ).catch((err) => {
           stream.destroy(err);
           throw err;
+        }).finally(() => {
+          // Cleanup abort listener
+          if (request.signal) {
+            request.signal.removeEventListener("abort", abortHandler);
+          }
         });
 
         // Success

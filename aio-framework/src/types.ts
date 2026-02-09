@@ -55,6 +55,9 @@ export interface ChatCompletionRequest {
   // Chế độ chỉ định cụ thể
   provider?: Provider; // Chỉ định provider cụ thể
   model?: string; // Chỉ định model cụ thể
+  
+  // Abort signal để cancel request
+  signal?: AbortSignal;
 }
 
 export interface ChatCompletionResponse {
