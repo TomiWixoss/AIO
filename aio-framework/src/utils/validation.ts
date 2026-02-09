@@ -53,9 +53,11 @@ export const AIOConfigSchema = z.object({
 
 export const ChatCompletionRequestSchema = z.object({
   messages: z.array(MessageSchema).min(1, "At least one message is required"),
+  systemPrompt: z.string().optional(),
   temperature: z.number().min(0).max(2).optional(),
   max_tokens: z.number().int().positive().max(100000).optional(),
   top_p: z.number().min(0).max(1).optional(),
+  top_k: z.number().int().positive().max(1000).optional(),
   stream: z.boolean().optional().default(false),
   stop: z.array(z.string()).optional(),
   provider: ProviderSchema.optional(),

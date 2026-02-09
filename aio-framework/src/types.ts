@@ -46,9 +46,11 @@ export interface AIOConfig {
 
 export interface ChatCompletionRequest {
   messages: Message[];
+  systemPrompt?: string; // System prompt - sẽ tự động convert cho từng provider
   temperature?: number;
   max_tokens?: number;
   top_p?: number;
+  top_k?: number; // Top-K sampling (chỉ OpenRouter và Google AI hỗ trợ)
   stream?: boolean;
   stop?: string[];
   

@@ -29,9 +29,15 @@ export class GroqProvider extends BaseProvider {
     }
 
     const client = this.createClient(apiKey);
+    
+    // Build messages với systemPrompt nếu có
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = request.systemPrompt
+      ? [{ role: "system", content: request.systemPrompt }, ...request.messages]
+      : [...request.messages];
+    
     const response = await client.chat.completions.create({
       model: request.model,
-      messages: request.messages,
+      messages,
       temperature: request.temperature,
       max_tokens: request.max_tokens,
       top_p: request.top_p,
@@ -69,9 +75,15 @@ export class GroqProvider extends BaseProvider {
     }
 
     const client = this.createClient(apiKey);
+    
+    // Build messages với systemPrompt nếu có
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = request.systemPrompt
+      ? [{ role: "system", content: request.systemPrompt }, ...request.messages]
+      : [...request.messages];
+    
     const stream = await client.chat.completions.create({
       model: request.model,
-      messages: request.messages,
+      messages,
       temperature: request.temperature,
       max_tokens: request.max_tokens,
       top_p: request.top_p,

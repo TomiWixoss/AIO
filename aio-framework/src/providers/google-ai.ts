@@ -31,9 +31,9 @@ export class GoogleAIProvider extends BaseProvider {
       }));
   }
 
-  // Lấy system instruction từ messages
-  private getSystemInstruction(messages: ChatCompletionRequest["messages"]) {
-    return messages.find((m) => m.role === "system")?.content;
+  // Lấy system instruction từ request.systemPrompt
+  private getSystemInstruction(request: ChatCompletionRequest) {
+    return request.systemPrompt;
   }
 
   async chatCompletion(
@@ -46,7 +46,7 @@ export class GoogleAIProvider extends BaseProvider {
 
     const client = this.createClient(apiKey);
     const contents = this.buildContents(request.messages);
-    const systemInstruction = this.getSystemInstruction(request.messages);
+    const systemInstruction = this.getSystemInstruction(request);
 
     const response = await client.models.generateContent({
       model: request.model,
@@ -56,6 +56,7 @@ export class GoogleAIProvider extends BaseProvider {
         temperature: request.temperature,
         maxOutputTokens: request.max_tokens,
         topP: request.top_p,
+        topK: request.top_k,
         stopSequences: request.stop,
       },
     });
@@ -93,7 +94,7 @@ export class GoogleAIProvider extends BaseProvider {
 
     const client = this.createClient(apiKey);
     const contents = this.buildContents(request.messages);
-    const systemInstruction = this.getSystemInstruction(request.messages);
+    const systemInstruction = this.getSystemInstruction(request);
 
     const stream = await client.models.generateContentStream({
       model: request.model,
@@ -103,6 +104,7 @@ export class GoogleAIProvider extends BaseProvider {
         temperature: request.temperature,
         maxOutputTokens: request.max_tokens,
         topP: request.top_p,
+        topK: request.top_k,
       },
     });
 

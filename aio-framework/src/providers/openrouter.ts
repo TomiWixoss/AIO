@@ -33,12 +33,23 @@ export class OpenRouterProvider extends BaseProvider {
 
     const client = this.createClient(apiKey);
 
+    // Build messages - OpenRouter uses system role in messages
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+    
+    // Add system prompt as first message if provided
+    if (request.systemPrompt) {
+      messages.push({
+        role: "system",
+        content: request.systemPrompt,
+      });
+    }
+    
+    // Add user messages
+    messages.push(...request.messages);
+
     const completion = await client.chat.completions.create({
       model: request.model,
-      messages: request.messages.map((m) => ({
-        role: m.role as "system" | "user" | "assistant",
-        content: m.content,
-      })),
+      messages,
       temperature: request.temperature,
       max_tokens: request.max_tokens,
       top_p: request.top_p,
@@ -77,12 +88,23 @@ export class OpenRouterProvider extends BaseProvider {
 
     const client = this.createClient(apiKey);
 
+    // Build messages - OpenRouter uses system role in messages
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+    
+    // Add system prompt as first message if provided
+    if (request.systemPrompt) {
+      messages.push({
+        role: "system",
+        content: request.systemPrompt,
+      });
+    }
+    
+    // Add user messages
+    messages.push(...request.messages);
+
     const stream = await client.chat.completions.create({
       model: request.model,
-      messages: request.messages.map((m) => ({
-        role: m.role as "system" | "user" | "assistant",
-        content: m.content,
-      })),
+      messages,
       temperature: request.temperature,
       max_tokens: request.max_tokens,
       top_p: request.top_p,
