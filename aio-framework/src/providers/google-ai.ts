@@ -36,6 +36,30 @@ export class GoogleAIProvider extends BaseProvider {
     return request.systemPrompt;
   }
 
+  // Convert response_format sang Google AI format
+  private buildResponseConfig(responseFormat?: ChatCompletionRequest["response_format"]) {
+    if (!responseFormat || responseFormat.type === "text") {
+      return {}; // Default - plain text
+    }
+
+    if (responseFormat.type === "json_object") {
+      // JSON mode - chỉ cần set MIME type
+      return {
+        responseMimeType: "application/json",
+      };
+    }
+
+    if (responseFormat.type === "json_schema") {
+      // Structured outputs - MIME type + schema
+      return {
+        responseMimeType: "application/json",
+        responseSchema: responseFormat.json_schema.schema,
+      };
+    }
+
+    return {};
+  }
+
   async chatCompletion(
     request: ChatCompletionRequest,
     apiKey: string
@@ -47,6 +71,7 @@ export class GoogleAIProvider extends BaseProvider {
     const client = this.createClient(apiKey);
     const contents = this.buildContents(request.messages);
     const systemInstruction = this.getSystemInstruction(request);
+    const responseConfig = this.buildResponseConfig(request.response_format);
 
     const response = await client.models.generateContent({
       model: request.model,
@@ -58,6 +83,7 @@ export class GoogleAIProvider extends BaseProvider {
         topP: request.top_p,
         topK: request.top_k,
         stopSequences: request.stop,
+        ...responseConfig,
       },
     });
 
@@ -95,6 +121,7 @@ export class GoogleAIProvider extends BaseProvider {
     const client = this.createClient(apiKey);
     const contents = this.buildContents(request.messages);
     const systemInstruction = this.getSystemInstruction(request);
+    const responseConfig = this.buildResponseConfig(request.response_format);
 
     const stream = await client.models.generateContentStream({
       model: request.model,
@@ -105,6 +132,7 @@ export class GoogleAIProvider extends BaseProvider {
         maxOutputTokens: request.max_tokens,
         topP: request.top_p,
         topK: request.top_k,
+        ...responseConfig,
       },
     });
 

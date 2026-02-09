@@ -54,6 +54,9 @@ export interface ChatCompletionRequest {
   stream?: boolean;
   stop?: string[];
   
+  // JSON Response Format
+  response_format?: ResponseFormat;
+  
   // Chế độ chỉ định cụ thể
   provider?: Provider; // Chỉ định provider cụ thể
   model?: string; // Chỉ định model cụ thể
@@ -61,6 +64,20 @@ export interface ChatCompletionRequest {
   // Abort signal để cancel request
   signal?: AbortSignal;
 }
+
+// Response format types
+export type ResponseFormat =
+  | { type: "text" } // Default - plain text
+  | { type: "json_object" } // JSON mode - valid JSON without schema
+  | {
+      type: "json_schema"; // Structured outputs - JSON with schema validation
+      json_schema: {
+        name: string;
+        strict?: boolean; // true = guaranteed schema compliance (OpenRouter, Groq, Cerebras)
+        schema: Record<string, any>; // JSON Schema object
+        description?: string;
+      };
+    };
 
 export interface ChatCompletionResponse {
   id: string;

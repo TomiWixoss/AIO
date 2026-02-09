@@ -53,6 +53,7 @@ export class OpenRouterProvider extends BaseProvider {
       temperature: request.temperature,
       max_tokens: request.max_tokens,
       top_p: request.top_p,
+      response_format: request.response_format as any,
     });
 
     return {
@@ -108,6 +109,7 @@ export class OpenRouterProvider extends BaseProvider {
       temperature: request.temperature,
       max_tokens: request.max_tokens,
       top_p: request.top_p,
+      response_format: request.response_format as any,
       stream: true,
     });
 

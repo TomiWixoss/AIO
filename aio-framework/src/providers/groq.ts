@@ -42,6 +42,7 @@ export class GroqProvider extends BaseProvider {
       max_tokens: request.max_tokens,
       top_p: request.top_p,
       stop: request.stop,
+      response_format: request.response_format as any,
     });
 
     return {
@@ -88,6 +89,7 @@ export class GroqProvider extends BaseProvider {
       max_tokens: request.max_tokens,
       top_p: request.top_p,
       stop: request.stop,
+      response_format: request.response_format as any,
       stream: true,
     });
 
