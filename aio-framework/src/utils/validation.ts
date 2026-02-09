@@ -6,7 +6,38 @@ import { z } from "zod";
 
 export const MessageSchema = z.object({
   role: z.enum(["system", "user", "assistant"]),
-  content: z.string().min(1, "Content cannot be empty"),
+  content: z.union([
+    z.string().min(1, "Content cannot be empty"),
+    z.array(
+      z.union([
+        // Text content
+        z.object({
+          type: z.literal("text"),
+          text: z.string(),
+        }),
+        // Image content
+        z.object({
+          type: z.literal("image"),
+          source: z.object({
+            type: z.enum(["base64", "url"]),
+            media_type: z.string(),
+            data: z.string().optional(),
+            url: z.string().optional(),
+          }),
+        }),
+        // File content (video, audio, pdf, etc.)
+        z.object({
+          type: z.literal("file"),
+          source: z.object({
+            type: z.enum(["base64", "url"]),
+            media_type: z.string(),
+            data: z.string().optional(),
+            url: z.string().optional(),
+          }),
+        }),
+      ])
+    ),
+  ]),
 });
 
 export const ProviderSchema = z.enum([

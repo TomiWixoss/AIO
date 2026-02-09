@@ -12,7 +12,7 @@ import type {
   Provider,
 } from "../types.js";
 import { v4 as uuidv4 } from "uuid";
-
+import { convertMessagesToTextOnly } from "../utils/message-converter.js";
 export class GroqProvider extends BaseProvider {
   readonly name: Provider = "groq";
 
@@ -30,10 +30,11 @@ export class GroqProvider extends BaseProvider {
 
     const client = this.createClient(apiKey);
     
-    // Build messages với systemPrompt nếu có
+    // Build messages với systemPrompt nếu có - convert multimodal to text
+    const textMessages = convertMessagesToTextOnly(request.messages);
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = request.systemPrompt
-      ? [{ role: "system", content: request.systemPrompt }, ...request.messages]
-      : [...request.messages];
+      ? [{ role: "system", content: request.systemPrompt }, ...textMessages]
+      : textMessages;
     
     const response = await client.chat.completions.create({
       model: request.model,
@@ -77,10 +78,11 @@ export class GroqProvider extends BaseProvider {
 
     const client = this.createClient(apiKey);
     
-    // Build messages với systemPrompt nếu có
+    // Build messages với systemPrompt nếu có - convert multimodal to text
+    const textMessages = convertMessagesToTextOnly(request.messages);
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = request.systemPrompt
-      ? [{ role: "system", content: request.systemPrompt }, ...request.messages]
-      : [...request.messages];
+      ? [{ role: "system", content: request.systemPrompt }, ...textMessages]
+      : textMessages;
     
     const stream = await client.chat.completions.create({
       model: request.model,

@@ -1,0 +1,24 @@
+# Source files
+src/
+examples/
+*.ts
+!*.d.ts
+
+# Config files
+tsconfig.json
+.env
+.env.example
+
+# Development
+node_modules/
+.vscode/
+.git/
+.gitignore
+
+# Documentation
+CHANGELOG.md
+
+# Test files
+test/
+*.test.ts
+*.spec.ts

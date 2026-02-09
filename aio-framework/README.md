@@ -1,6 +1,6 @@
-# AIO Framework
+# AIO
 
-**All-In-One LLM Framework** - Multi-provider LLM integration với auto-fallback và priority management cho JavaScript/TypeScript.
+**All-In-One LLM Framework** - Multi-provider LLM integration với auto-fallback, priority management, multimodal support và structured outputs cho JavaScript/TypeScript.
 
 ## ✨ Tính năng
 
@@ -8,45 +8,44 @@
 - 🎯 **Priority Management**: Quản lý độ ưu tiên cho providers, models và API keys
 - 🔁 **Auto Fallback**: Tự động chuyển sang provider/model khác khi fail
 - 🔑 **Key Rotation**: Tự động thử các API keys khác khi key hiện tại fail
-- 📊 **Flexible Modes**: 
-  - **Auto Mode**: Tự động chọn provider/model theo priority
-  - **Direct Mode**: Chỉ định cụ thể provider và model
-- 🌊 **Streaming**: Hỗ trợ streaming responses
+- �️* **Multimodal Support**: Hỗ trợ images, video, audio, PDF (Google AI)
+- 📊 **Structured Outputs**: JSON mode và JSON Schema validation
+- 🌊 **Streaming**: Hỗ trợ streaming responses với abort
+- 🛑 **Abort Control**: Cancel requests bất kỳ lúc nào
 - 💪 **TypeScript**: Full TypeScript support với type definitions
+- 📝 **Logging & Validation**: Winston logger và Zod validation
+- 🔄 **Retry Logic**: Exponential backoff retry với error classification
 
 ## 📦 Cài đặt
 
 ```bash
-npm install @aio/llm-framework
+npm install aio
 ```
 
 ## 🚀 Quick Start
 
-### 1. Basic Usage (Direct Mode)
+### 1. Basic Usage
 
 ```typescript
-import { AIO } from "@aio/llm-framework";
+import { AIO } from "aio";
 
 const aio = new AIO({
   providers: [
     {
-      provider: "groq",
-      apiKeys: [{ key: "gsk_xxx" }],
-      models: [{ modelId: "llama-3.3-70b-versatile" }],
+      provider: "openrouter",
+      apiKeys: [{ key: "sk-or-v1-xxx" }],
+      models: [{ modelId: "arcee-ai/trinity-large-preview:free" }],
     },
   ],
-  autoMode: false,
 });
 
 const response = await aio.chatCompletion({
-  provider: "groq",
-  modelId: "llama-3.3-70b-versatile",
-  messages: [
-    { role: "user", content: "Hello!" },
-  ],
+  provider: "openrouter",
+  model: "arcee-ai/trinity-large-preview:free",
+  messages: [{ role: "user", content: "Hello!" }],
 });
 
-console.log(response.content);
+console.log(response.choices[0].message.content);
 ```
 
 ### 2. Auto Mode với Fallback
@@ -112,17 +111,178 @@ const aio = new AIO({
 ### 4. Streaming
 
 ```typescript
-for await (const chunk of aio.chatCompletionStream({
-  provider: "groq",
-  modelId: "llama-3.3-70b-versatile",
-  messages: [
-    { role: "user", content: "Write a poem" },
-  ],
-})) {
-  if (!chunk.done) {
-    process.stdout.write(chunk.content);
+await aio.streamChatCompletion(
+  {
+    provider: "openrouter",
+    model: "arcee-ai/trinity-large-preview:free",
+    messages: [{ role: "user", content: "Write a poem" }],
+  },
+  (chunk) => {
+    process.stdout.write(chunk.choices[0]?.delta?.content || "");
+  },
+  (error) => {
+    if (error) console.error("Error:", error);
+    else console.log("\nDone!");
   }
-}
+);
+```
+
+### 5. Multimodal Input (Google AI Only)
+
+```typescript
+// Image from base64
+const response = await aio.chatCompletion({
+  provider: "google-ai",
+  model: "gemini-1.5-flash",
+  messages: [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "Describe this image" },
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: "image/jpeg",
+            data: "base64_encoded_image_data",
+          },
+        },
+      ],
+    },
+  ],
+});
+
+// Image from URL
+const response2 = await aio.chatCompletion({
+  provider: "google-ai",
+  model: "gemini-1.5-flash",
+  messages: [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "What's in this image?" },
+        {
+          type: "image",
+          source: {
+            type: "url",
+            media_type: "image/jpeg",
+            url: "https://example.com/image.jpg",
+          },
+        },
+      ],
+    },
+  ],
+});
+
+// PDF, Video, Audio
+const response3 = await aio.chatCompletion({
+  provider: "google-ai",
+  model: "gemini-1.5-flash",
+  messages: [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "Summarize this PDF" },
+        {
+          type: "file",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: "base64_encoded_pdf_data",
+          },
+        },
+      ],
+    },
+  ],
+});
+```
+
+### 6. Structured Outputs (JSON Mode)
+
+```typescript
+// JSON Object Mode
+const response = await aio.chatCompletion({
+  provider: "openrouter",
+  model: "arcee-ai/trinity-large-preview:free",
+  messages: [
+    {
+      role: "user",
+      content: "Return a JSON with name, age, city for John, 25, New York",
+    },
+  ],
+  response_format: { type: "json_object" },
+});
+
+const data = JSON.parse(response.choices[0].message.content);
+console.log(data); // { name: "John", age: 25, city: "New York" }
+```
+
+### 7. Structured Outputs (JSON Schema)
+
+```typescript
+const response = await aio.chatCompletion({
+  provider: "openrouter",
+  model: "arcee-ai/trinity-large-preview:free",
+  messages: [
+    {
+      role: "user",
+      content: "Extract: iPhone 15 Pro - Great camera, expensive. Rating: 4.5/5",
+    },
+  ],
+  response_format: {
+    type: "json_schema",
+    json_schema: {
+      name: "product_review",
+      strict: true,
+      schema: {
+        type: "object",
+        properties: {
+          product_name: { type: "string" },
+          rating: { type: "number" },
+          sentiment: {
+            type: "string",
+            enum: ["positive", "negative", "neutral"],
+          },
+          key_features: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        required: ["product_name", "rating", "sentiment", "key_features"],
+        additionalProperties: false,
+      },
+    },
+  },
+});
+
+const data = JSON.parse(response.choices[0].message.content);
+// Guaranteed to match schema!
+```
+
+### 8. System Prompt
+
+```typescript
+const response = await aio.chatCompletion({
+  provider: "openrouter",
+  model: "arcee-ai/trinity-large-preview:free",
+  systemPrompt: "You are a helpful assistant that always responds in JSON format",
+  messages: [{ role: "user", content: "What is 2+2?" }],
+});
+```
+
+### 9. Advanced Parameters
+
+```typescript
+const response = await aio.chatCompletion({
+  provider: "google-ai",
+  model: "gemini-1.5-flash",
+  messages: [{ role: "user", content: "Tell me a story" }],
+  temperature: 0.7,
+  max_tokens: 1000,
+  top_p: 0.9,
+  top_k: 40, // Only for Google AI and OpenRouter
+  stop: ["END", "STOP"],
+});
 ```
 
 ## 📚 API Reference

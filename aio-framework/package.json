@@ -1,10 +1,18 @@
 {
-  "name": "@aio/llm-framework",
+  "name": "aio",
   "version": "1.0.0",
-  "description": "All-In-One LLM Framework - Multi-provider LLM integration with auto-fallback and priority management",
+  "description": "All-In-One LLM Framework - Multi-provider LLM integration with auto-fallback, priority management, and multimodal support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/aio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/aio/issues"
+  },
+  "homepage": "https://github.com/yourusername/aio#readme",
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch examples/basic.ts",
@@ -18,13 +26,23 @@
     "ai",
     "openrouter",
     "google-ai",
+    "gemini",
     "groq",
     "cerebras",
     "multi-provider",
     "auto-fallback",
-    "chatbot"
+    "chatbot",
+    "multimodal",
+    "vision",
+    "audio",
+    "video",
+    "pdf",
+    "structured-outputs",
+    "json-schema",
+    "streaming",
+    "typescript"
   ],
-  "author": "",
+  "author": "Your Name <your.email@example.com>",
   "license": "MIT",
   "devDependencies": {
     "@types/express": "^5.0.6",

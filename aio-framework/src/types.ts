@@ -7,7 +7,35 @@ export type Provider = "openrouter" | "groq" | "cerebras" | "google-ai";
 
 export interface Message {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | MessageContent[]; // Hỗ trợ multimodal cho Google AI
+}
+
+// Multimodal content types (CHỈ cho Google AI)
+export type MessageContent = TextContent | ImageContent | FileContent;
+
+export interface TextContent {
+  type: "text";
+  text: string;
+}
+
+export interface ImageContent {
+  type: "image";
+  source: {
+    type: "base64" | "url";
+    media_type: string; // MIME type: image/jpeg, image/png, image/webp
+    data?: string; // base64 string (nếu type = "base64")
+    url?: string; // URL (nếu type = "url")
+  };
+}
+
+export interface FileContent {
+  type: "file";
+  source: {
+    type: "base64" | "url";
+    media_type: string; // MIME type: video/mp4, audio/mp3, application/pdf, etc.
+    data?: string; // base64 string (nếu type = "base64")
+    url?: string; // URL (nếu type = "url")
+  };
 }
 
 export interface ApiKey {

@@ -12,6 +12,7 @@ import type {
   Provider,
 } from "../types.js";
 import { v4 as uuidv4 } from "uuid";
+import { convertMessagesToTextOnly } from "../utils/message-converter.js";
 
 export class OpenRouterProvider extends BaseProvider {
   readonly name: Provider = "openrouter";
@@ -34,6 +35,8 @@ export class OpenRouterProvider extends BaseProvider {
     const client = this.createClient(apiKey);
 
     // Build messages - OpenRouter uses system role in messages
+    // Convert multimodal to text only (OpenRouter doesn't support multimodal like Google)
+    const textMessages = convertMessagesToTextOnly(request.messages);
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
     
     // Add system prompt as first message if provided
@@ -45,7 +48,7 @@ export class OpenRouterProvider extends BaseProvider {
     }
     
     // Add user messages
-    messages.push(...request.messages);
+    messages.push(...textMessages);
 
     const completion = await client.chat.completions.create({
       model: request.model,
@@ -90,6 +93,8 @@ export class OpenRouterProvider extends BaseProvider {
     const client = this.createClient(apiKey);
 
     // Build messages - OpenRouter uses system role in messages
+    // Convert multimodal to text only (OpenRouter doesn't support multimodal like Google)
+    const textMessages = convertMessagesToTextOnly(request.messages);
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
     
     // Add system prompt as first message if provided
@@ -101,7 +106,7 @@ export class OpenRouterProvider extends BaseProvider {
     }
     
     // Add user messages
-    messages.push(...request.messages);
+    messages.push(...textMessages);
 
     const stream = await client.chat.completions.create({
       model: request.model,

@@ -25,10 +25,53 @@ export class GoogleAIProvider extends BaseProvider {
   private buildContents(messages: ChatCompletionRequest["messages"]) {
     return messages
       .filter((m) => m.role !== "system")
-      .map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
+      .map((m) => {
+        const role = m.role === "assistant" ? "model" : "user";
+        
+        // Nếu content là string - text đơn giản
+        if (typeof m.content === "string") {
+          return {
+            role,
+            parts: [{ text: m.content }],
+          };
+        }
+        
+        // Nếu content là array - multimodal (text + images/files)
+        const parts = m.content.map((item) => {
+          if (item.type === "text") {
+            return { text: item.text };
+          }
+          
+          if (item.type === "image" || item.type === "file") {
+            const source = item.source;
+            
+            // Inline data (base64)
+            if (source.type === "base64" && source.data) {
+              return {
+                inlineData: {
+                  mimeType: source.media_type,
+                  data: source.data,
+                },
+              };
+            }
+            
+            // File URI (URL)
+            if (source.type === "url" && source.url) {
+              return {
+                fileData: {
+                  mimeType: source.media_type,
+                  fileUri: source.url,
+                },
+              };
+            }
+          }
+          
+          // Fallback - text
+          return { text: "" };
+        });
+        
+        return { role, parts };
+      });
   }
 
   // Lấy system instruction từ request.systemPrompt
