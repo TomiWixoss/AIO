@@ -9,7 +9,7 @@ import type {
   ProviderConfig,
   ChatCompletionRequest,
   ChatCompletionResponse,
-  StreamChunk,
+  ApiKey,
 } from "./types.js";
 import { AIOError } from "./types.js";
 import { BaseProvider } from "./providers/base.js";
@@ -17,20 +17,56 @@ import { OpenRouterProvider } from "./providers/openrouter.js";
 import { GroqProvider } from "./providers/groq.js";
 import { CerebrasProvider } from "./providers/cerebras.js";
 import { GoogleAIProvider } from "./providers/google-ai.js";
-import { Response } from "express";
 import { Readable } from "stream";
+import { logger } from "./utils/logger.js";
+import { KeyManager } from "./utils/key-manager.js";
+import {
+  AIOConfigSchema,
+  ChatCompletionRequestSchema,
+} from "./utils/validation.js";
+import { AutoModeHandler } from "./core/auto-mode.js";
+import { DirectModeHandler } from "./core/direct-mode.js";
+import { StreamHandler } from "./core/stream-handler.js";
 
 export class AIO {
   private config: AIOConfig;
   private providerInstances: Map<Provider, BaseProvider> = new Map();
 
   constructor(config: AIOConfig) {
+    // Validate config if enabled
+    const enableValidation = config.enableValidation !== false;
+    if (enableValidation) {
+      const result = AIOConfigSchema.safeParse(config);
+      if (!result.success) {
+        throw new AIOError(
+          `Invalid configuration: ${result.error.message}`,
+          undefined,
+          undefined,
+          400
+        );
+      }
+      this.config = result.data;
+    } else {
+      this.config = config;
+    }
+
+    // Set defaults
     this.config = {
       autoMode: false,
       maxRetries: 3,
       retryDelay: 1000,
-      ...config,
+      enableLogging: true,
+      enableValidation: true,
+      ...this.config,
     };
+
+    if (this.config.enableLogging) {
+      logger.info("AIO Framework initialized", {
+        providers: this.config.providers.length,
+        autoMode: this.config.autoMode,
+        maxRetries: this.config.maxRetries,
+      });
+    }
 
     this.initializeProviders();
   }
@@ -66,16 +102,31 @@ export class AIO {
   }
 
   /**
-   * Lấy API keys theo priority
+   * Lấy API keys theo priority và availability
    */
-  private getApiKeys(provider: Provider): string[] {
+  private getApiKeys(provider: Provider): ApiKey[] {
     const config = this.getProviderConfig(provider);
     if (!config) return [];
 
     return config.apiKeys
       .filter((k) => k.isActive !== false)
-      .sort((a, b) => (b.priority || 0) - (a.priority || 0))
-      .map((k) => k.key);
+      .filter((k) => !k.dailyLimit || (k.requestsToday || 0) < k.dailyLimit)
+      .sort((a, b) => {
+        // Sort by priority first
+        const priorityDiff = (b.priority || 0) - (a.priority || 0);
+        if (priorityDiff !== 0) return priorityDiff;
+        // Then by usage (prefer less used keys)
+        return (a.requestsToday || 0) - (b.requestsToday || 0);
+      });
+  }
+
+  /**
+   * Lấy providers đã sắp xếp theo priority
+   */
+  private getSortedProviders(): ProviderConfig[] {
+    return [...this.config.providers]
+      .filter((p) => p.isActive !== false)
+      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
   }
 
   /**
@@ -84,13 +135,43 @@ export class AIO {
   async chatCompletion(
     request: ChatCompletionRequest
   ): Promise<ChatCompletionResponse> {
+    // Validate request if enabled
+    if (this.config.enableValidation) {
+      const result = ChatCompletionRequestSchema.safeParse(request);
+      if (!result.success) {
+        throw new AIOError(
+          `Invalid request: ${result.error.message}`,
+          undefined,
+          undefined,
+          400
+        );
+      }
+    }
+
+    if (this.config.enableLogging) {
+      logger.info("Chat completion request", {
+        provider: request.provider,
+        model: request.model,
+        autoMode: this.config.autoMode,
+        messageCount: request.messages.length,
+      });
+    }
+
     if (this.config.autoMode && !request.provider && !request.model) {
-      return this.autoChatCompletion(request);
+      return AutoModeHandler.autoChatCompletion(
+        request,
+        this.getSortedProviders(),
+        (req) => this.directChatCompletion(req),
+        this.config.enableLogging || false
+      );
     }
 
     if (!request.provider || !request.model) {
       throw new AIOError(
-        "provider and model are required when autoMode is disabled"
+        "provider and model are required when autoMode is disabled",
+        undefined,
+        undefined,
+        400
       );
     }
 
@@ -98,70 +179,7 @@ export class AIO {
   }
 
   /**
-   * Auto mode: tự động chọn provider/model theo priority và fallback
-   */
-  private async autoChatCompletion(
-    request: ChatCompletionRequest
-  ): Promise<ChatCompletionResponse> {
-    const failedAttempts: string[] = [];
-
-    // Sắp xếp providers theo priority
-    const sortedProviders = this.getSortedProviders();
-
-    let originalProvider: string | undefined;
-    let originalModel: string | undefined;
-
-    for (const providerConfig of sortedProviders) {
-      const provider = providerConfig.provider;
-
-      // Sắp xếp models theo priority
-      const sortedModels = [...providerConfig.models]
-        .filter((m) => m.isActive !== false)
-        .sort((a, b) => (b.priority || 0) - (a.priority || 0));
-
-      for (const modelConfig of sortedModels) {
-        // Lưu original provider/model
-        if (!originalProvider) {
-          originalProvider = provider;
-          originalModel = modelConfig.modelId;
-        }
-
-        try {
-          const response = await this.directChatCompletion({
-            ...request,
-            provider,
-            model: modelConfig.modelId,
-          });
-
-          // Thêm fallback info nếu có
-          if (failedAttempts.length > 0) {
-            response.auto_fallback = {
-              original_provider: originalProvider!,
-              original_model: originalModel!,
-              final_provider: provider,
-              final_model: modelConfig.modelId,
-              fallback_count: failedAttempts.length,
-            };
-          }
-
-          return response;
-        } catch (error: any) {
-          failedAttempts.push(`${provider}:${modelConfig.modelId}`);
-          console.warn(
-            `[AIO] Failed ${provider}:${modelConfig.modelId} - ${error.message}`
-          );
-          continue;
-        }
-      }
-    }
-
-    throw new AIOError(
-      `All providers exhausted. Tried: ${failedAttempts.join(", ")}`
-    );
-  }
-
-  /**
-   * Direct mode: chỉ định cụ thể provider và model
+   * Direct chat completion
    */
   private async directChatCompletion(
     request: ChatCompletionRequest
@@ -169,36 +187,24 @@ export class AIO {
     const { provider, model } = request;
 
     if (!provider || !model) {
-      throw new AIOError("provider and model are required");
+      throw new AIOError(
+        "provider and model are required",
+        undefined,
+        undefined,
+        400
+      );
     }
 
     const instance = this.getProviderInstance(provider);
     const apiKeys = this.getApiKeys(provider);
 
-    if (apiKeys.length === 0) {
-      throw new AIOError(`No API keys configured for provider: ${provider}`);
-    }
-
-    // Thử từng API key theo priority
-    let lastError: Error | null = null;
-
-    for (const apiKey of apiKeys) {
-      try {
-        return await instance.chatCompletion(request, apiKey);
-      } catch (error: any) {
-        lastError = error;
-        console.warn(
-          `[AIO] Key failed for ${provider}, trying next key...`,
-          error.message
-        );
-        continue;
-      }
-    }
-
-    throw new AIOError(
-      `All API keys failed for ${provider}: ${lastError?.message}`,
-      provider,
-      model
+    return DirectModeHandler.directChatCompletion(
+      request,
+      instance,
+      apiKeys,
+      this.config.maxRetries || 3,
+      this.config.retryDelay || 1000,
+      this.config.enableLogging || false
     );
   }
 
@@ -209,12 +215,20 @@ export class AIO {
     request: ChatCompletionRequest
   ): Promise<Readable> {
     if (this.config.autoMode && !request.provider && !request.model) {
-      return this.autoStreamChatCompletion(request);
+      return StreamHandler.autoStreamChatCompletion(
+        request,
+        this.getSortedProviders(),
+        (req) => this.directStreamChatCompletion(req),
+        this.config.enableLogging || false
+      );
     }
 
     if (!request.provider || !request.model) {
       throw new AIOError(
-        "provider and model are required when autoMode is disabled"
+        "provider and model are required when autoMode is disabled",
+        undefined,
+        undefined,
+        400
       );
     }
 
@@ -222,41 +236,7 @@ export class AIO {
   }
 
   /**
-   * Auto stream mode
-   */
-  private async autoStreamChatCompletion(
-    request: ChatCompletionRequest
-  ): Promise<Readable> {
-    const sortedProviders = this.getSortedProviders();
-
-    for (const providerConfig of sortedProviders) {
-      const provider = providerConfig.provider;
-
-      const sortedModels = [...providerConfig.models]
-        .filter((m) => m.isActive !== false)
-        .sort((a, b) => (b.priority || 0) - (a.priority || 0));
-
-      for (const modelConfig of sortedModels) {
-        try {
-          return await this.directStreamChatCompletion({
-            ...request,
-            provider,
-            model: modelConfig.modelId,
-          });
-        } catch (error: any) {
-          console.warn(
-            `[AIO] Stream failed ${provider}:${modelConfig.modelId} - ${error.message}`
-          );
-          continue;
-        }
-      }
-    }
-
-    throw new AIOError("All providers exhausted for streaming");
-  }
-
-  /**
-   * Direct stream mode
+   * Direct stream chat completion
    */
   private async directStreamChatCompletion(
     request: ChatCompletionRequest
@@ -264,65 +244,73 @@ export class AIO {
     const { provider, model } = request;
 
     if (!provider || !model) {
-      throw new AIOError("provider and model are required");
+      throw new AIOError(
+        "provider and model are required",
+        undefined,
+        undefined,
+        400
+      );
     }
 
     const instance = this.getProviderInstance(provider);
     const apiKeys = this.getApiKeys(provider);
 
-    if (apiKeys.length === 0) {
-      throw new AIOError(`No API keys configured for provider: ${provider}`);
-    }
-
-    let lastError: Error | null = null;
-
-    for (const apiKey of apiKeys) {
-      try {
-        // Tạo readable stream
-        const stream = new Readable({
-          read() {},
-        });
-
-        // Tạo mock response object
-        const mockRes = {
-          write: (chunk: string) => {
-            stream.push(chunk);
-          },
-          end: () => {
-            stream.push(null);
-          },
-          headersSent: false,
-        } as unknown as Response;
-
-        // Start streaming
-        instance.streamChatCompletion(request, mockRes, apiKey).catch((err) => {
-          stream.destroy(err);
-        });
-
-        return stream;
-      } catch (error: any) {
-        lastError = error;
-        console.warn(
-          `[AIO] Stream key failed for ${provider}, trying next key...`,
-          error.message
-        );
-        continue;
-      }
-    }
-
-    throw new AIOError(
-      `All API keys failed for ${provider}: ${lastError?.message}`,
-      provider,
-      model
+    return StreamHandler.directStreamChatCompletion(
+      request,
+      instance,
+      apiKeys,
+      this.config.maxRetries || 3,
+      this.config.retryDelay || 1000,
+      this.config.enableLogging || false
     );
   }
 
   /**
-   * Lấy providers đã sắp xếp theo priority
+   * Get key statistics for a provider
    */
-  private getSortedProviders(): ProviderConfig[] {
-    return [...this.config.providers]
-      .filter((p) => p.isActive !== false)
-      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  getKeyStats(
+    provider: Provider
+  ): ReturnType<typeof KeyManager.getStats> | null {
+    const config = this.getProviderConfig(provider);
+    if (!config) return null;
+    return KeyManager.getStats(config.apiKeys);
+  }
+
+  /**
+   * Reset daily counters for all providers
+   */
+  resetDailyCounters(): void {
+    this.config.providers.forEach((providerConfig) => {
+      KeyManager.resetDailyCounters(providerConfig.apiKeys);
+    });
+
+    if (this.config.enableLogging) {
+      logger.info("Daily counters reset for all providers");
+    }
+  }
+
+  /**
+   * Get configuration summary
+   */
+  getConfigSummary(): {
+    providers: number;
+    totalKeys: number;
+    totalModels: number;
+    autoMode: boolean;
+    maxRetries: number;
+  } {
+    return {
+      providers: this.config.providers.length,
+      totalKeys: this.config.providers.reduce(
+        (sum, p) => sum + p.apiKeys.length,
+        0
+      ),
+      totalModels: this.config.providers.reduce(
+        (sum, p) => sum + p.models.length,
+        0
+      ),
+      autoMode: this.config.autoMode || false,
+      maxRetries: this.config.maxRetries || 3,
+    };
   }
 }

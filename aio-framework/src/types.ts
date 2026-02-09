@@ -16,6 +16,9 @@ export interface ApiKey {
   isActive?: boolean; // Default: true
   dailyLimit?: number; // Giới hạn request/ngày
   requestsToday?: number; // Số request đã dùng hôm nay
+  errorCount?: number; // Số lỗi liên tiếp
+  lastError?: string; // Lỗi gần nhất
+  lastUsed?: Date; // Lần sử dụng cuối
 }
 
 export interface ModelConfig {
@@ -37,6 +40,8 @@ export interface AIOConfig {
   autoMode?: boolean; // Tự động chọn provider/model theo priority (default: false)
   maxRetries?: number; // Số lần retry tối đa (default: 3)
   retryDelay?: number; // Delay giữa các retry (ms) (default: 1000)
+  enableLogging?: boolean; // Bật/tắt logging (default: true)
+  enableValidation?: boolean; // Bật/tắt validation (default: true)
 }
 
 export interface ChatCompletionRequest {
@@ -97,9 +102,68 @@ export class AIOError extends Error {
     message: string,
     public provider?: Provider,
     public model?: string,
-    public statusCode?: number
+    public statusCode?: number,
+    public isRetryable: boolean = false
   ) {
     super(message);
     this.name = "AIOError";
+  }
+
+  /**
+   * Classify error type
+   */
+  static classify(error: any): {
+    isRetryable: boolean;
+    shouldRotateKey: boolean;
+    category: "rate_limit" | "auth" | "invalid_request" | "server" | "network" | "unknown";
+  } {
+    const msg = (error.message || String(error)).toLowerCase();
+
+    // Rate limit errors
+    if (msg.includes("rate") || msg.includes("429") || msg.includes("quota")) {
+      return { isRetryable: true, shouldRotateKey: true, category: "rate_limit" };
+    }
+
+    // Auth errors
+    if (
+      msg.includes("auth") ||
+      msg.includes("403") ||
+      msg.includes("401") ||
+      msg.includes("api key") ||
+      msg.includes("unauthorized") ||
+      msg.includes("permission")
+    ) {
+      return { isRetryable: false, shouldRotateKey: true, category: "auth" };
+    }
+
+    // Invalid request
+    if (
+      msg.includes("400") ||
+      msg.includes("invalid") ||
+      msg.includes("bad request")
+    ) {
+      return { isRetryable: false, shouldRotateKey: false, category: "invalid_request" };
+    }
+
+    // Server errors
+    if (
+      msg.includes("500") ||
+      msg.includes("502") ||
+      msg.includes("503") ||
+      msg.includes("504")
+    ) {
+      return { isRetryable: true, shouldRotateKey: false, category: "server" };
+    }
+
+    // Network errors
+    if (
+      msg.includes("timeout") ||
+      msg.includes("econnreset") ||
+      msg.includes("network")
+    ) {
+      return { isRetryable: true, shouldRotateKey: false, category: "network" };
+    }
+
+    return { isRetryable: false, shouldRotateKey: false, category: "unknown" };
   }
 }

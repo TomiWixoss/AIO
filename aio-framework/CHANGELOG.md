@@ -1,59 +1,162 @@
 # Changelog
 
-## [1.0.0] - 2026-02-09
+## [2.0.0] - 2026-02-09
 
-### 🎉 Initial Release
+### 🎉 Major Release - Feature Parity with Gateway
 
-**AIO Framework** - All-In-One LLM Framework cho JavaScript/TypeScript
+#### ✨ New Features
 
-### ✨ Features
+**Key Management**
+- ✅ API key usage tracking (`requestsToday`, `errorCount`)
+- ✅ Daily limit enforcement per key
+- ✅ Automatic key rotation on errors
+- ✅ Key statistics and monitoring
+- ✅ Smart key selection (priority + usage-based)
 
-- **Multi-Provider Support**: Hỗ trợ 4 providers
-  - OpenRouter (30+ models)
-  - Groq (ultra-fast inference)
-  - Cerebras (high-performance)
-  - Google AI (Gemini models)
+**Request Validation**
+- ✅ Zod schema validation for all requests
+- ✅ Config validation on initialization
+- ✅ Detailed validation error messages
+- ✅ Optional validation (can be disabled)
 
-- **Priority Management**
-  - Provider priority (chọn provider ưu tiên)
-  - Model priority (chọn model ưu tiên trong provider)
-  - API Key priority (rotation khi key fail)
+**Retry Logic**
+- ✅ Exponential backoff retry mechanism
+- ✅ Configurable max attempts and delay
+- ✅ Retryable error detection
+- ✅ Retry callbacks for monitoring
 
-- **Auto Fallback**
-  - Tự động chuyển sang provider/model khác khi fail
-  - Không giới hạn số lần fallback
-  - Track fallback history
+**Logging**
+- ✅ Winston-based structured logging
+- ✅ Configurable log levels
+- ✅ Request/response tracking
+- ✅ Error categorization logging
+- ✅ Optional logging (can be disabled)
 
-- **Flexible Modes**
-  - **Auto Mode**: Tự động chọn provider/model theo priority
-  - **Direct Mode**: Chỉ định cụ thể provider và model
+**Error Handling**
+- ✅ Error classification (rate_limit, auth, invalid_request, server, network)
+- ✅ Smart error categorization
+- ✅ Retryable vs non-retryable detection
+- ✅ Key rotation decision logic
 
-- **Streaming Support**
-  - Real-time response streaming
-  - Hỗ trợ cả reasoning models và standard models
+#### 🏗️ Architecture Improvements
 
-- **TypeScript Support**
-  - Full type definitions
-  - Type-safe API
+**Code Organization**
+- Refactored 504-line `aio.ts` into modular structure:
+  - `core/auto-mode.ts` (93 lines) - Auto fallback logic
+  - `core/direct-mode.ts` (109 lines) - Direct mode with retry
+  - `core/stream-handler.ts` (162 lines) - Streaming logic
+  - `aio.ts` (284 lines) - Main class coordination
+- Better separation of concerns
+- Easier to maintain and extend
 
-### 🧪 Tested Providers
+**New Utilities**
+- `utils/key-manager.ts` - Centralized key management
+- `utils/validation.ts` - Zod schemas
+- `utils/retry.ts` - Retry logic with backoff
+- `utils/logger.ts` - Winston logger setup
 
-- ✅ OpenRouter - `openrouter/pony-alpha` (reasoning model)
-- ✅ Groq - `openai/gpt-oss-120b` (standard model)
-- ✅ Google AI - `gemini-3-flash-preview` (Gemini model)
-- ⏳ Cerebras - (chưa test với API key thật)
+#### 📦 Dependencies
 
-### 📦 Package Info
+**Added**
+- `zod@^4.3.5` - Schema validation
+- `winston@^3.19.0` - Structured logging
 
-- Package: `@aio/llm-framework`
-- Version: `1.0.0`
-- License: MIT
-- TypeScript: ✅
-- ESM: ✅
+#### 🧪 Testing
 
-### 🔧 Technical Details
+**New Test Files**
+- `examples/test-simple.ts` - Basic functionality test
+- `examples/test-new-features.ts` - Comprehensive feature testing
+  - Config validation
+  - Request validation
+  - Key rotation
+  - Error classification
+  - Daily limits
+  - Streaming with logging
 
-- Hỗ trợ cả `content` và `reasoning` fields (cho reasoning models)
-- Auto-detect và handle response format khác nhau
-- Key rotation khi API key fail
-- Graceful error handling
+#### 📊 Comparison with Gateway
+
+**Now Supported** ✅
+- Key Management & Tracking
+- Request Validation
+- Retry Logic (fully implemented)
+- Structured Logging
+- Error Classification
+
+**Still Different** (by design)
+- No database integration (library vs service)
+- No tool execution (out of scope)
+- No REST API (library, not service)
+
+#### 🔄 Breaking Changes
+
+**Type Changes**
+- `ApiKey` interface extended with tracking fields:
+  - `errorCount?: number`
+  - `lastError?: string`
+  - `lastUsed?: Date`
+
+**Config Changes**
+- New optional config fields:
+  - `enableLogging?: boolean` (default: true)
+  - `enableValidation?: boolean` (default: true)
+
+**Error Changes**
+- `AIOError` now includes:
+  - `isRetryable: boolean`
+  - Static `classify()` method
+
+#### 📝 Migration Guide
+
+**From v1.x to v2.0**
+
+```typescript
+// Old (v1.x)
+const aio = new AIO({
+  providers: [
+    {
+      provider: "openrouter",
+      apiKeys: [{ key: "sk-..." }],
+      models: [{ modelId: "model-id" }],
+    },
+  ],
+});
+
+// New (v2.0) - Same API, but with new features
+const aio = new AIO({
+  providers: [
+    {
+      provider: "openrouter",
+      apiKeys: [
+        {
+          key: "sk-...",
+          priority: 10,
+          dailyLimit: 1000, // NEW: Optional limit
+        },
+      ],
+      models: [{ modelId: "model-id" }],
+    },
+  ],
+  enableLogging: true, // NEW: Optional
+  enableValidation: true, // NEW: Optional
+  maxRetries: 3, // Now actually implemented!
+  retryDelay: 1000,
+});
+
+// NEW: Get key statistics
+const stats = aio.getKeyStats("openrouter");
+console.log(stats); // { total, active, disabled, totalUsage, totalErrors }
+
+// NEW: Get config summary
+const summary = aio.getConfigSummary();
+console.log(summary); // { providers, totalKeys, totalModels, autoMode, maxRetries }
+```
+
+## [1.0.0] - 2026-01-XX
+
+### Initial Release
+
+- Multi-provider support (OpenRouter, Groq, Cerebras, Google AI)
+- Auto mode with priority-based fallback
+- Streaming support
+- Basic error handling
+- Priority-based provider/model selection
