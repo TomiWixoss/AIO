@@ -96,17 +96,10 @@ export class ToolStreamHandler {
     let currentMessages = [...request.messages];
     let iteration = 0;
 
-    // Inject tool system prompt
+    // Inject tool system prompt vào request.systemPrompt
+    // Mỗi provider sẽ tự xử lý systemPrompt theo cách riêng
     const toolPrompt = generateToolSystemPrompt(tools!);
-    const systemIdx = currentMessages.findIndex((m) => m.role === "system");
-    if (systemIdx >= 0) {
-      currentMessages[systemIdx] = {
-        ...currentMessages[systemIdx],
-        content: currentMessages[systemIdx].content + "\n\n" + toolPrompt,
-      };
-    } else {
-      currentMessages.unshift({ role: "system", content: toolPrompt.trim() });
-    }
+    request.systemPrompt = (request.systemPrompt || "") + "\n\n" + toolPrompt;
 
     while (iteration < maxIterations) {
       iteration++;
@@ -147,80 +140,124 @@ export class ToolStreamHandler {
           }
 
           const chunkStr = chunk.toString();
-          assistantMessage += chunkStr;
 
-          // Parse for tool calls
-          const parsed = parser.processChunk(chunkStr);
+          // Split chunk into individual SSE messages
+          const lines = chunkStr.split('\n');
+          
+          for (const line of lines) {
+            if (!line.trim() || !line.startsWith('data: ')) continue;
+            
+            // Skip [DONE] marker
+            if (line.includes('[DONE]')) continue;
 
-          // Stream text content
-          if (parsed.text) {
-            outputStream.push(parsed.text);
-          }
+            // Extract text content from SSE message
+            let textContent = "";
+            try {
+              const data = JSON.parse(line.slice(6));
+              textContent = data.choices?.[0]?.delta?.content || "";
+            } catch (e) {
+              // Skip invalid JSON
+              continue;
+            }
 
-          // Tool call pending
-          if (parsed.toolCallPending) {
-            toolCallDetected = true;
-            const event: StreamChunk = {
-              id: `tool-${Date.now()}`,
-              provider: request.provider!,
-              model: request.model!,
-              choices: [
-                {
-                  index: 0,
-                  delta: {},
-                  finish_reason: null,
+            if (!textContent) continue;
+            
+            assistantMessage += textContent;
+
+            // Parse for tool calls BEFORE forwarding
+            const parsed = parser.processChunk(textContent);
+
+            // Tool call pending
+            if (parsed.toolCallPending) {
+              toolCallDetected = true;
+              const event: StreamChunk = {
+                id: `tool-${Date.now()}`,
+                provider: request.provider!,
+                model: request.model!,
+                choices: [
+                  {
+                    index: 0,
+                    delta: {},
+                    finish_reason: null,
+                  },
+                ],
+                tool_call: {
+                  type: "pending",
                 },
-              ],
-              tool_call: {
-                type: "pending",
-              },
-            };
-            outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
-          }
+              };
+              outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
+            }
 
-          // Tool call complete
-          if (parsed.toolCall) {
-            toolCall = parsed.toolCall;
+            // Tool call complete - STOP STREAM IMMEDIATELY
+            if (parsed.toolCall) {
+              toolCall = parsed.toolCall;
+              
+              if (enableLogging) {
+                logger.info("Tool call detected, stopping stream", {
+                  name: toolCall.name,
+                  params: toolCall.params,
+                });
+              }
+              
+              // Cancel stream to stop AI from generating more
+              stream.destroy();
 
-            const event: StreamChunk = {
-              id: `tool-${Date.now()}`,
-              provider: request.provider!,
-              model: request.model!,
-              choices: [
-                {
-                  index: 0,
-                  delta: {},
-                  finish_reason: null,
+              const event: StreamChunk = {
+                id: `tool-${Date.now()}`,
+                provider: request.provider!,
+                model: request.model!,
+                choices: [
+                  {
+                    index: 0,
+                    delta: {},
+                    finish_reason: null,
+                  },
+                ],
+                tool_call: {
+                  type: "executing",
+                  call: toolCall,
                 },
-              ],
-              tool_call: {
-                type: "executing",
-                call: toolCall,
-              },
-            };
-            outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
-          }
+              };
+              outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
+              
+              // Break out of loop to execute tool
+              break;
+            }
 
-          // Tool call error
-          if (parsed.toolCallError) {
-            const event: StreamChunk = {
-              id: `tool-${Date.now()}`,
-              provider: request.provider!,
-              model: request.model!,
-              choices: [
-                {
-                  index: 0,
-                  delta: {},
-                  finish_reason: null,
+            // Tool call error
+            if (parsed.toolCallError) {
+              const event: StreamChunk = {
+                id: `tool-${Date.now()}`,
+                provider: request.provider!,
+                model: request.model!,
+                choices: [
+                  {
+                    index: 0,
+                    delta: {},
+                    finish_reason: null,
+                  },
+                ],
+                tool_call: {
+                  type: "error",
+                  error: parsed.toolCallError,
                 },
-              ],
-              tool_call: {
-                type: "error",
-                error: parsed.toolCallError,
-              },
-            };
-            outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
-          }
+              };
+              outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
+            }
+
+            // Forward text content (not tool tags)
+            if (parsed.text) {
+              // Reconstruct SSE message with text
+              try {
+                const data = JSON.parse(line.slice(6));
+                data.choices[0].delta.content = parsed.text;
+                outputStream.push(`data: ${JSON.stringify(data)}\n\n`);
+              } catch (e) {
+                // Fallback
+                outputStream.push(parsed.text);
+              }
+            }
+          } // End of for loop over lines
         }
 
         // No tool call detected - finish

@@ -75,18 +75,36 @@ export class ToolStreamParser {
   } {
     this.buffer += chunk;
 
-    // Check for [tool] opening tag
-    if (!this.inToolTag && this.buffer.includes("[tool]")) {
-      const parts = this.buffer.split("[tool]");
-      this.textBeforeTool = parts[0];
-      this.buffer = parts.slice(1).join("[tool]");
-      this.inToolTag = true;
-      this.toolContent = "";
+    // Check for [tool opening tag (handle partial tags)
+    if (!this.inToolTag && (this.buffer.includes("[tool]") || this.buffer.includes("[tool"))) {
+      let splitPoint = -1;
+      let tagToSplit = "";
+      
+      if (this.buffer.includes("[tool]")) {
+        splitPoint = this.buffer.indexOf("[tool]");
+        tagToSplit = "[tool]";
+      } else if (this.buffer.includes("[tool")) {
+        // Partial tag at end of buffer - wait for more data
+        // But if we have newline after [tool, it's complete
+        const toolIndex = this.buffer.indexOf("[tool");
+        const afterTool = this.buffer.substring(toolIndex + 5);
+        if (afterTool.includes("\n") || afterTool.includes("]")) {
+          splitPoint = toolIndex;
+          tagToSplit = "[tool";
+        }
+      }
+      
+      if (splitPoint >= 0) {
+        this.textBeforeTool = this.buffer.substring(0, splitPoint);
+        this.buffer = this.buffer.substring(splitPoint + tagToSplit.length);
+        this.inToolTag = true;
+        this.toolContent = "";
 
-      return {
-        text: this.textBeforeTool,
-        toolCallPending: true,
-      };
+        return {
+          text: this.textBeforeTool,
+          toolCallPending: true,
+        };
+      }
     }
 
     // Check for [/tool] closing tag
