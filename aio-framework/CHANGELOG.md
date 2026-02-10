@@ -1,6 +1,43 @@
 # Changelog
 
-## [1.0.1] - 2026-02-10
+## [1.0.3] - 2026-02-10
+
+### 🆕 New Provider: Nvidia
+
+**Added**
+- Nvidia provider support với Kimi K2.5 model (FREE)
+  - Base URL: `https://integrate.api.nvidia.com/v1`
+  - Model: `moonshotai/kimi-k2.5`
+  - OpenAI-compatible API
+  - Hỗ trợ reasoning mode (chain-of-thought)
+  - Streaming support
+  - JSON response format support
+
+**Provider Implementation**
+- `src/providers/nvidia.ts` - Nvidia provider class
+- Xử lý `reasoning` field từ Kimi K2.5 responses
+- Tương thích với OpenAI SDK
+
+**Documentation**
+- Cập nhật README với thông tin Nvidia provider
+- Hướng dẫn đăng ký API key miễn phí
+- Thêm Nvidia vào bảng supported providers
+
+**Examples**
+- `examples/nvidia-kimi.ts` - Comprehensive example
+- `examples/nvidia-simple.ts` - Simple test
+- `examples/test-nvidia-raw.ts` - Raw API test
+
+**Types & Validation**
+- Thêm "nvidia" vào `Provider` type
+- Cập nhật validation schema với Nvidia support
+
+**Keywords**
+- Thêm "nvidia" và "kimi" vào package keywords
+
+---
+
+## [1.0.2] - 2026-02-10
 
 ### 🚀 Tool Calling System
 
@@ -36,7 +73,7 @@
 
 ---
 
-## [2.0.0] - 2026-02-09
+## [1.0.1] - 2026-02-09
 
 ### 🎉 Major Release - Feature Parity with Gateway
 

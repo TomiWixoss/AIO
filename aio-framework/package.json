@@ -1,6 +1,6 @@
 {
   "name": "aio-llm",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "All-In-One LLM Framework - Multi-provider LLM integration with auto-fallback, priority management, multimodal support, and text-based tool calling",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -29,6 +29,8 @@
     "gemini",
     "groq",
     "cerebras",
+    "nvidia",
+    "kimi",
     "multi-provider",
     "auto-fallback",
     "chatbot",
