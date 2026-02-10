@@ -1,5 +1,41 @@
 # Changelog
 
+## [Unreleased]
+
+### 🚀 Tool Calling System
+
+**Added**
+- Text-based tool calling với streaming support
+  - Parse `[tool]...[/tool]` tags real-time từ AI response
+  - Automatic parameter validation (required, enum, unknown params)
+  - Automatic default value application
+  - Retry logic với exponential backoff (max 3 retries)
+  - Execution metadata tracking (time, retry count)
+  - Iterative loop support (max 5 iterations, configurable)
+  - Provider-agnostic (works với mọi LLM)
+  - Cursor IDE-inspired best practices
+- Tool calling documentation:
+  - `docs/TOOL-CALLING.md` - User guide
+  - `docs/TOOL-CALLING-ARCHITECTURE.md` - Architecture comparison
+- Tool calling examples:
+  - `examples/tool-test-simple.ts` - Basic example
+  - `examples/tool-calling.ts` - Complex example
+  - `examples/tool-test-validation.ts` - Validation & retry example
+
+**Enhanced Types**
+- `ToolDefinition` với `requireReasoning` field
+- `ToolParameter` với `enum` và `default` fields
+- `ToolResult` với metadata (executionTime, retryCount)
+- `ToolCallEvent` với timestamp tracking
+
+**Improved**
+- System prompt generation với Cursor-style rules
+- Error messages với actionable suggestions
+- Multi-line SSE chunk parsing
+- Stream destruction on tool detection
+
+---
+
 ## [2.0.0] - 2026-02-09
 
 ### 🎉 Major Release - Feature Parity with Gateway

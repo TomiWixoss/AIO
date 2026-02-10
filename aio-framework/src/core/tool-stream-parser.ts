@@ -6,7 +6,7 @@
 import { ToolCall, ToolDefinition } from "../types.js";
 
 /**
- * Generate system prompt for tools
+ * Generate system prompt for tools (inspired by Cursor IDE)
  */
 export function generateToolSystemPrompt(tools: ToolDefinition[]): string {
   if (tools.length === 0) return "";
@@ -14,10 +14,13 @@ export function generateToolSystemPrompt(tools: ToolDefinition[]): string {
   const toolDescriptions = tools
     .map((t) => {
       const paramsDesc = Object.entries(t.parameters)
-        .map(
-          ([name, info]) =>
-            `    - ${name} (${info.type}${info.required ? ", required" : ""}): ${info.description}`
-        )
+        .map(([name, info]) => {
+          let desc = `    - ${name} (${info.type}${info.required ? ", required" : ""})`;
+          if (info.enum) desc += ` [${info.enum.join("|")}]`;
+          if (info.default !== undefined) desc += ` (default: ${info.default})`;
+          desc += `: ${info.description}`;
+          return desc;
+        })
         .join("\n");
 
       return `- ${t.name}: ${t.description}
@@ -27,30 +30,144 @@ ${paramsDesc}`;
     .join("\n\n");
 
   return `
+<tool_calling>
 You have access to the following tools to help answer user questions:
 
 ${toolDescriptions}
 
-To use a tool, wrap your request in [tool] tags like this:
+## How to Use Tools
+
+To use a tool, you MUST:
+1. First explain what you're about to do and why (this helps the user understand your reasoning)
+2. Then wrap your tool request in [tool] tags with this EXACT format:
+
 [tool]
-{"name": "tool_name", "params": {"param1": "value1", "param2": "value2"}}
+{
+  "name": "tool_name",
+  "params": {"param1": "value1", "param2": "value2"},
+  "reasoning": "Brief explanation of why you're calling this tool"
+}
 [/tool]
 
-Wait for the tool result before continuing. The result will be provided in [tool_result] tags.
-Only use tools when necessary to answer the user's question.
-Always use the exact parameter names as specified above.
+## Critical Rules
+
+- ALWAYS explain your reasoning before calling a tool
+- ONLY use tools when necessary to answer the user's question
+- Use the EXACT parameter names as specified above
+- After outputting [/tool], STOP generating immediately - the system will execute the tool
+- DO NOT generate fake tool results - wait for the real result in [tool_result] tags
+- DO NOT apologize excessively - just focus on solving the problem
+- If a tool fails, analyze the error and try a different approach
+- Address the root cause of problems, not just symptoms
+- DO NOT loop more than 3 times trying to fix the same error
+
+## Tool Result Format
+
+After you call a tool, the system will provide results in this format:
+[tool_result]
+Tool: tool_name
+Success: true/false
+Data: {...} or Error: error message
+[/tool_result]
+
+Use this information to continue your response or call additional tools if needed.
+</tool_calling>
 `;
 }
 
 /**
- * Format tool result for LLM
+ * Format tool result for LLM (with metadata)
  */
-export function formatToolResult(toolName: string, result: any, error?: string): string {
-  return `[tool_result]
+export function formatToolResult(
+  toolName: string, 
+  result: any, 
+  error?: string,
+  metadata?: {
+    executionTime?: number;
+    retryCount?: number;
+    suggestion?: string;
+  }
+): string {
+  let output = `[tool_result]
 Tool: ${toolName}
-Success: ${!error}
-${error ? `Error: ${error}` : `Data: ${JSON.stringify(result, null, 2)}`}
-[/tool_result]`;
+Success: ${!error}`;
+
+  if (error) {
+    output += `\nError: ${error}`;
+    if (metadata?.suggestion) {
+      output += `\nSuggestion: ${metadata.suggestion}`;
+    }
+  } else {
+    output += `\nData: ${JSON.stringify(result, null, 2)}`;
+  }
+
+  if (metadata?.executionTime) {
+    output += `\nExecution Time: ${metadata.executionTime}ms`;
+  }
+
+  if (metadata?.retryCount && metadata.retryCount > 0) {
+    output += `\nRetries: ${metadata.retryCount}`;
+  }
+
+  output += `\n[/tool_result]`;
+  
+  return output;
+}
+
+/**
+ * Validate tool call parameters
+ */
+export function validateToolCall(
+  call: ToolCall,
+  toolDef: ToolDefinition
+): { valid: boolean; error?: string } {
+  // Check required parameters
+  for (const [paramName, paramInfo] of Object.entries(toolDef.parameters)) {
+    if (paramInfo.required && !(paramName in call.params)) {
+      return {
+        valid: false,
+        error: `Missing required parameter: ${paramName}`,
+      };
+    }
+  }
+
+  // Check enum values
+  for (const [paramName, paramValue] of Object.entries(call.params)) {
+    const paramInfo = toolDef.parameters[paramName];
+    if (!paramInfo) {
+      return {
+        valid: false,
+        error: `Unknown parameter: ${paramName}`,
+      };
+    }
+
+    if (paramInfo.enum && !paramInfo.enum.includes(paramValue)) {
+      return {
+        valid: false,
+        error: `Invalid value for ${paramName}. Must be one of: ${paramInfo.enum.join(", ")}`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Apply default values to tool call parameters
+ */
+export function applyDefaultValues(
+  call: ToolCall,
+  toolDef: ToolDefinition
+): ToolCall {
+  const params = { ...call.params };
+
+  for (const [paramName, paramInfo] of Object.entries(toolDef.parameters)) {
+    if (!(paramName in params) && paramInfo.default !== undefined) {
+      params[paramName] = paramInfo.default;
+    }
+  }
+
+  return { ...call, params };
 }
 
 /**

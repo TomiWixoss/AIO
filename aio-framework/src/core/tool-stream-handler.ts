@@ -22,6 +22,8 @@ import {
   ToolStreamParser,
   generateToolSystemPrompt,
   formatToolResult,
+  validateToolCall,
+  applyDefaultValues,
 } from "./tool-stream-parser.js";
 
 export class ToolStreamHandler {
@@ -266,60 +268,87 @@ export class ToolStreamHandler {
           return;
         }
 
-        // Execute tool
+        // TypeScript null check
+        const currentToolCall = toolCall;
+
+        // Find tool definition
+        const toolDef = tools!.find((t) => t.name === currentToolCall.name);
+        if (!toolDef) {
+          const errorMsg = `Unknown tool: ${currentToolCall.name}`;
+          const event: StreamChunk = {
+            id: `tool-${Date.now()}`,
+            provider: request.provider!,
+            model: request.model!,
+            choices: [{ index: 0, delta: {}, finish_reason: null }],
+            tool_call: { type: "error", call: currentToolCall, error: errorMsg },
+          };
+          outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
+
+          currentMessages.push({
+            role: "assistant",
+            content: assistantMessage,
+          });
+          currentMessages.push({
+            role: "user",
+            content: formatToolResult(currentToolCall.name, null, errorMsg),
+          });
+          continue;
+        }
+
+        // Apply default values
+        let validatedToolCall = applyDefaultValues(currentToolCall, toolDef);
+
+        // Validate tool call
+        const validation = validateToolCall(validatedToolCall, toolDef);
+        if (!validation.valid) {
+          const event: StreamChunk = {
+            id: `tool-${Date.now()}`,
+            provider: request.provider!,
+            model: request.model!,
+            choices: [{ index: 0, delta: {}, finish_reason: null }],
+            tool_call: { type: "error", call: validatedToolCall, error: validation.error },
+          };
+          outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
+
+          currentMessages.push({
+            role: "assistant",
+            content: assistantMessage,
+          });
+          currentMessages.push({
+            role: "user",
+            content: formatToolResult(validatedToolCall.name, null, validation.error, {
+              suggestion: "Check the tool definition and provide all required parameters with correct types.",
+            }),
+          });
+          continue;
+        }
+
+        // Execute tool with retry and timing
         if (enableLogging) {
           logger.info("Executing tool", {
-            name: toolCall.name,
-            params: toolCall.params,
+            name: validatedToolCall.name,
+            params: validatedToolCall.params,
           });
         }
 
-        let toolResult: any;
-        let toolError: string | undefined;
+        const result = await this.executeToolWithRetry(
+          validatedToolCall,
+          onToolCall!,
+          3, // max 3 retries
+          enableLogging
+        );
 
-        try {
-          toolResult = await onToolCall!(toolCall);
-
-          const event: StreamChunk = {
-            id: `tool-${Date.now()}`,
-            provider: request.provider!,
-            model: request.model!,
-            choices: [
-              {
-                index: 0,
-                delta: {},
-                finish_reason: null,
-              },
-            ],
-            tool_call: {
-              type: "success",
-              call: toolCall,
-              result: toolResult,
-            },
-          };
-          outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
-        } catch (error: any) {
-          toolError = error.message;
-
-          const event: StreamChunk = {
-            id: `tool-${Date.now()}`,
-            provider: request.provider!,
-            model: request.model!,
-            choices: [
-              {
-                index: 0,
-                delta: {},
-                finish_reason: null,
-              },
-            ],
-            tool_call: {
-              type: "error",
-              call: toolCall,
-              error: toolError,
-            },
-          };
-          outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
-        }
+        // Emit result event
+        const event: StreamChunk = {
+          id: `tool-${Date.now()}`,
+          provider: request.provider!,
+          model: request.model!,
+          choices: [{ index: 0, delta: {}, finish_reason: null }],
+          tool_call: result.error
+            ? { type: "error", call: validatedToolCall, error: result.error }
+            : { type: "success", call: validatedToolCall, result: result.data },
+        };
+        outputStream.push(`data: ${JSON.stringify(event)}\n\n`);
 
         // Add messages for next iteration
         currentMessages.push({
@@ -329,7 +358,12 @@ export class ToolStreamHandler {
 
         currentMessages.push({
           role: "user",
-          content: formatToolResult(toolCall.name, toolResult, toolError),
+          content: formatToolResult(
+            validatedToolCall.name,
+            result.data,
+            result.error,
+            result.metadata
+          ),
         });
 
         // Continue loop
@@ -368,6 +402,77 @@ export class ToolStreamHandler {
     }
 
     outputStream.push(null);
+  }
+
+  /**
+   * Execute tool with retry logic and timing
+   */
+  private static async executeToolWithRetry(
+    call: ToolCall,
+    handler: ToolCallHandler,
+    maxRetries: number,
+    enableLogging: boolean
+  ): Promise<{
+    data?: any;
+    error?: string;
+    metadata: {
+      executionTime: number;
+      retryCount: number;
+      suggestion?: string;
+    };
+  }> {
+    const startTime = Date.now();
+    let retryCount = 0;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await handler(call);
+        const executionTime = Date.now() - startTime;
+
+        return {
+          data: result,
+          metadata: {
+            executionTime,
+            retryCount,
+          },
+        };
+      } catch (error: any) {
+        lastError = error;
+        retryCount++;
+
+        if (enableLogging) {
+          logger.warn("Tool execution failed", {
+            tool: call.name,
+            attempt: attempt + 1,
+            maxRetries: maxRetries + 1,
+            error: error.message,
+          });
+        }
+
+        // Don't retry on last attempt
+        if (attempt < maxRetries) {
+          // Exponential backoff
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.min(1000 * Math.pow(2, attempt), 5000))
+          );
+        }
+      }
+    }
+
+    const executionTime = Date.now() - startTime;
+
+    return {
+      error: lastError?.message || "Unknown error",
+      metadata: {
+        executionTime,
+        retryCount,
+        suggestion:
+          retryCount > 0
+            ? "Tool failed after multiple retries. Check if the parameters are correct or if the tool is available."
+            : "Tool execution failed. Check the error message and try again with different parameters.",
+      },
+    };
   }
 
   /**

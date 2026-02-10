@@ -159,27 +159,43 @@ export interface ToolDefinition {
   name: string;
   description: string;
   parameters: Record<string, ToolParameter>;
+  requireReasoning?: boolean; // Force LLM to explain why calling this tool
 }
 
 export interface ToolParameter {
   type: string;
   description: string;
   required?: boolean;
+  enum?: string[]; // Allowed values
+  default?: any; // Default value
 }
 
 export interface ToolCall {
   name: string;
   params: Record<string, any>;
+  reasoning?: string; // Why this tool is being called
+  id?: string; // Unique ID for tracking
+}
+
+export interface ToolResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  metadata?: {
+    executionTime?: number;
+    retryCount?: number;
+  };
 }
 
 export interface ToolCallEvent {
   type: "pending" | "executing" | "success" | "error";
   call?: ToolCall;
-  result?: any;
+  result?: ToolResult;
   error?: string;
+  timestamp?: number;
 }
 
-export type ToolCallHandler = (call: ToolCall) => Promise<any>;
+export type ToolCallHandler = (call: ToolCall) => Promise<ToolResult | any>;
 
 export class AIOError extends Error {
   constructor(
