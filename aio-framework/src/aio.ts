@@ -27,6 +27,7 @@ import {
 import { AutoModeHandler } from "./core/auto-mode.js";
 import { DirectModeHandler } from "./core/direct-mode.js";
 import { StreamHandler } from "./core/stream-handler.js";
+import { ToolStreamHandler } from "./core/tool-stream-handler.js";
 
 export class AIO {
   private config: AIOConfig;
@@ -210,10 +211,36 @@ export class AIO {
 
   /**
    * Stream chat completion
+   * Hỗ trợ tool calling nếu có tools và onToolCall
    */
   async chatCompletionStream(
     request: ChatCompletionRequest
   ): Promise<Readable> {
+    // Check if tool calling is requested
+    if (request.tools && request.tools.length > 0 && request.onToolCall) {
+      if (!request.provider || !request.model) {
+        throw new AIOError(
+          "provider and model are required for tool calling",
+          undefined,
+          undefined,
+          400
+        );
+      }
+
+      const instance = this.getProviderInstance(request.provider);
+      const apiKeys = this.getApiKeys(request.provider);
+
+      return ToolStreamHandler.streamWithTools(
+        request,
+        instance,
+        apiKeys,
+        this.config.maxRetries || 3,
+        this.config.retryDelay || 1000,
+        this.config.enableLogging || false
+      );
+    }
+
+    // Normal streaming without tools
     if (this.config.autoMode && !request.provider && !request.model) {
       return StreamHandler.autoStreamChatCompletion(
         request,

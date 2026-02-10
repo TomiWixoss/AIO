@@ -85,6 +85,11 @@ export interface ChatCompletionRequest {
   // JSON Response Format
   response_format?: ResponseFormat;
   
+  // Tool calling support (streaming only)
+  tools?: ToolDefinition[];
+  onToolCall?: ToolCallHandler;
+  maxToolIterations?: number; // Default: 5
+  
   // Chế độ chỉ định cụ thể
   provider?: Provider; // Chỉ định provider cụ thể
   model?: string; // Chỉ định model cụ thể
@@ -145,7 +150,36 @@ export interface StreamChunk {
     };
     finish_reason: string | null;
   }[];
+  // Tool call events
+  tool_call?: ToolCallEvent;
 }
+
+// Tool calling types
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, ToolParameter>;
+}
+
+export interface ToolParameter {
+  type: string;
+  description: string;
+  required?: boolean;
+}
+
+export interface ToolCall {
+  name: string;
+  params: Record<string, any>;
+}
+
+export interface ToolCallEvent {
+  type: "pending" | "executing" | "success" | "error";
+  call?: ToolCall;
+  result?: any;
+  error?: string;
+}
+
+export type ToolCallHandler = (call: ToolCall) => Promise<any>;
 
 export class AIOError extends Error {
   constructor(
