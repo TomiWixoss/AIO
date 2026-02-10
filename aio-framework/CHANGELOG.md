@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.1] - 2026-02-10
 
 ### 🚀 Tool Calling System
 

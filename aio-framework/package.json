@@ -1,7 +1,7 @@
 {
   "name": "aio-llm",
-  "version": "1.0.0",
-  "description": "All-In-One LLM Framework - Multi-provider LLM integration with auto-fallback, priority management, and multimodal support",
+  "version": "1.0.2",
+  "description": "All-In-One LLM Framework - Multi-provider LLM integration with auto-fallback, priority management, multimodal support, and text-based tool calling",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -40,7 +40,11 @@
     "structured-outputs",
     "json-schema",
     "streaming",
-    "typescript"
+    "typescript",
+    "tool-calling",
+    "function-calling",
+    "agents",
+    "agentic"
   ],
   "author": "Your Name <your.email@example.com>",
   "license": "MIT",

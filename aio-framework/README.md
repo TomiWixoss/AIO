@@ -8,8 +8,9 @@
 - 🎯 **Priority Management**: Quản lý độ ưu tiên cho providers, models và API keys
 - 🔁 **Auto Fallback**: Tự động chuyển sang provider/model khác khi fail
 - 🔑 **Key Rotation**: Tự động thử các API keys khác khi key hiện tại fail
-- �️* **Multimodal Support**: Hỗ trợ images, video, audio, PDF (Google AI)
+- 🖼️ **Multimodal Support**: Hỗ trợ images, video, audio, PDF (Google AI)
 - 📊 **Structured Outputs**: JSON mode và JSON Schema validation
+- 🛠️ **Tool Calling**: Text-based tool calling với streaming, validation, retry
 - 🌊 **Streaming**: Hỗ trợ streaming responses với abort
 - 🛑 **Abort Control**: Cancel requests bất kỳ lúc nào
 - 💪 **TypeScript**: Full TypeScript support với type definitions
@@ -284,6 +285,372 @@ const response = await aio.chatCompletion({
   stop: ["END", "STOP"],
 });
 ```
+
+## 🛠️ Tool Calling (NEW in v1.0.1)
+
+AIO Framework hỗ trợ **text-based tool calling** với streaming real-time. Framework tự động parse `[tool]...[/tool]` tags, validate parameters, retry on errors, và track execution metadata.
+
+### Quick Start
+
+```typescript
+import { AIO } from "aio";
+
+const aio = new AIO({
+  providers: [
+    {
+      provider: "google-ai",
+      apiKeys: [{ key: "your-api-key" }],
+      models: [{ modelId: "gemini-flash-latest" }],
+    },
+  ],
+});
+
+// 1. Define tools
+const tools = [
+  {
+    name: "get_weather",
+    description: "Get current weather for a city",
+    parameters: {
+      city: {
+        type: "string",
+        description: "City name",
+        required: true,
+      },
+      unit: {
+        type: "string",
+        description: "Temperature unit",
+        required: false,
+        enum: ["celsius", "fahrenheit"],
+        default: "celsius", // Auto-applied if not provided
+      },
+    },
+  },
+];
+
+// 2. Implement tool handler
+async function handleToolCall(call) {
+  console.log(`🔧 Calling: ${call.name}`, call.params);
+  
+  if (call.name === "get_weather") {
+    // Your tool logic here
+    return {
+      temperature: 22,
+      condition: "Sunny",
+      unit: call.params.unit,
+    };
+  }
+  
+  throw new Error(`Unknown tool: ${call.name}`);
+}
+
+// 3. Start streaming with tools
+const stream = await aio.chatCompletionStream({
+  provider: "google-ai",
+  model: "gemini-flash-latest",
+  messages: [
+    { role: "user", content: "What's the weather in Tokyo?" }
+  ],
+  tools,
+  onToolCall: handleToolCall,
+  maxToolIterations: 5, // Default: 5
+});
+
+// 4. Process events
+stream.on("data", (chunk) => {
+  const data = JSON.parse(chunk.toString().slice(6));
+  
+  if (data.tool_call) {
+    // Tool call event: pending, executing, success, error
+    console.log("Tool:", data.tool_call.type);
+  } else if (data.choices[0].delta.content) {
+    // Text content
+    process.stdout.write(data.choices[0].delta.content);
+  }
+});
+
+stream.on("end", () => console.log("\n✅ Done!"));
+```
+
+### Automatic Features
+
+#### 1. Parameter Validation
+
+Framework tự động validate:
+- ✅ Required parameters
+- ✅ Enum values
+- ✅ Unknown parameters
+
+```typescript
+// Tool definition
+{
+  name: "set_temperature",
+  parameters: {
+    value: { type: "number", required: true },
+    unit: { type: "string", enum: ["C", "F"], required: true }
+  }
+}
+
+// AI calls with invalid enum
+[tool]{"name": "set_temperature", "params": {"value": 25, "unit": "Kelvin"}}[/tool]
+
+// Framework returns error
+[tool_result]
+Tool: set_temperature
+Success: false
+Error: Invalid value for unit. Must be one of: C, F
+Suggestion: Check the tool definition and provide all required parameters.
+[/tool_result]
+```
+
+#### 2. Default Values
+
+```typescript
+{
+  parameters: {
+    limit: { type: "number", default: 10 },
+    unit: { type: "string", enum: ["celsius", "fahrenheit"], default: "celsius" }
+  }
+}
+
+// AI calls without defaults
+{"name": "search", "params": {"query": "test"}}
+
+// Framework applies automatically
+{"name": "search", "params": {"query": "test", "limit": 10}}
+```
+
+#### 3. Retry Logic
+
+Framework automatically retries up to 3 times với exponential backoff:
+
+```typescript
+async function handleToolCall(call) {
+  // Simulate transient error
+  if (Math.random() < 0.5) {
+    throw new Error("Temporary network error");
+  }
+  return { success: true };
+}
+
+// Framework retries:
+// Attempt 1: Immediate
+// Attempt 2: Wait 1s
+// Attempt 3: Wait 2s
+// Attempt 4: Wait 4s (max 5s)
+```
+
+#### 4. Execution Metadata
+
+```typescript
+[tool_result]
+Tool: get_weather
+Success: true
+Data: {"temperature": 22, "condition": "Sunny"}
+Execution Time: 1234ms
+Retries: 1
+[/tool_result]
+```
+
+### Multi-Step Tool Chaining
+
+AI tự động chain tools để hoàn thành complex tasks:
+
+```typescript
+const tools = [
+  {
+    name: "search_docs",
+    description: "Search documentation",
+    parameters: {
+      query: { type: "string", required: true }
+    }
+  },
+  {
+    name: "read_file",
+    description: "Read file content",
+    parameters: {
+      path: { type: "string", required: true }
+    }
+  }
+];
+
+// User: "Find and read the authentication guide"
+
+// AI automatically:
+// 1. Calls search_docs → Gets file path
+// 2. Calls read_file → Gets content
+// 3. Answers question with content
+```
+
+### Tool Call Events
+
+Framework emits SSE events cho mỗi tool call:
+
+```typescript
+// 1. Tool Call Pending
+{
+  "tool_call": {
+    "type": "pending"
+  }
+}
+
+// 2. Tool Call Executing
+{
+  "tool_call": {
+    "type": "executing",
+    "call": {
+      "name": "get_weather",
+      "params": {"city": "Tokyo", "unit": "celsius"}
+    }
+  }
+}
+
+// 3. Tool Call Success
+{
+  "tool_call": {
+    "type": "success",
+    "call": {...},
+    "result": {
+      "temperature": 22,
+      "condition": "Sunny"
+    }
+  }
+}
+
+// 4. Tool Call Error
+{
+  "tool_call": {
+    "type": "error",
+    "call": {...},
+    "error": "Weather API temporarily unavailable"
+  }
+}
+```
+
+### Advanced Tool Definition
+
+```typescript
+{
+  name: "search_database",
+  description: "Search database with filters",
+  parameters: {
+    query: {
+      type: "string",
+      description: "Search query",
+      required: true,
+    },
+    limit: {
+      type: "number",
+      description: "Max results",
+      required: false,
+      default: 10, // Auto-applied
+    },
+    sort_by: {
+      type: "string",
+      description: "Sort field",
+      required: false,
+      enum: ["date", "relevance", "popularity"], // Validated
+      default: "relevance",
+    },
+    filters: {
+      type: "object",
+      description: "Additional filters",
+      required: false,
+    },
+  },
+  requireReasoning: true, // Force AI to explain why calling this tool
+}
+```
+
+### Configuration
+
+```typescript
+const stream = await aio.chatCompletionStream({
+  messages: [...],
+  tools: [...],
+  onToolCall: handleToolCall,
+  maxToolIterations: 10, // Default: 5 (max tool call loops)
+  signal: abortController.signal, // Cancel anytime
+});
+```
+
+### Best Practices
+
+1. **Force Reasoning** - Require explanation parameter:
+```typescript
+{
+  name: "delete_file",
+  parameters: {
+    path: { type: "string", required: true },
+    reasoning: { 
+      type: "string", 
+      description: "Explain why you need to delete this file",
+      required: true 
+    }
+  }
+}
+```
+
+2. **Clear Descriptions** - Be specific:
+```typescript
+// ✅ Good
+description: "Search codebase for function definitions matching the query"
+
+// ❌ Bad
+description: "Search stuff"
+```
+
+3. **Use Enums** - Prevent invalid values:
+```typescript
+{
+  sort_by: {
+    type: "string",
+    enum: ["date", "relevance", "popularity"],
+    default: "relevance"
+  }
+}
+```
+
+4. **Provide Suggestions** - Help AI recover from errors:
+```typescript
+async function handleToolCall(call) {
+  if (call.name === "read_file") {
+    if (!fs.existsSync(call.params.path)) {
+      throw new Error(
+        `File not found: ${call.params.path}. ` +
+        `Did you mean: ${suggestSimilarFiles(call.params.path).join(", ")}?`
+      );
+    }
+  }
+}
+```
+
+### Documentation
+
+- 📖 [Tool Calling User Guide](./docs/TOOL-CALLING.md) - Detailed usage guide
+- 🏗️ [Tool Calling Architecture](./docs/TOOL-CALLING-ARCHITECTURE.md) - Architecture comparison với Cursor, OpenAI
+- 📝 [Tool Calling History](./docs/TOOL-CALLING-HISTORY.md) - How AI remembers tool calls and results
+- 💡 [Improvements Summary](./docs/IMPROVEMENTS.md) - What's new and why
+
+### Examples
+
+- `examples/tool-test-simple.ts` - Basic tool calling
+- `examples/tool-calling.ts` - Complex multi-tool example
+- `examples/tool-test-validation.ts` - Validation & retry example
+- `examples/tool-test-history.ts` - History management demonstration
+
+### Comparison with Native Function Calling
+
+| Feature | AIO Text-based | OpenAI Function Calling |
+|---------|----------------|-------------------------|
+| **Provider Support** | ✅ Any LLM | ❌ OpenAI, Anthropic only |
+| **Streaming** | ✅ Yes (only) | ✅ Yes |
+| **Validation** | ✅ Built-in | ✅ JSON Schema |
+| **Retry** | ✅ Automatic (3x) | ❌ Manual |
+| **Metadata** | ✅ Execution time, retry count | ❌ No |
+| **Default Values** | ✅ Automatic | ❌ Manual |
+| **Format** | Text tags | Native API |
+
+---
 
 ## 📚 API Reference
 
