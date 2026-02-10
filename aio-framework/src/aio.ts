@@ -17,6 +17,7 @@ import { OpenRouterProvider } from "./providers/openrouter.js";
 import { GroqProvider } from "./providers/groq.js";
 import { CerebrasProvider } from "./providers/cerebras.js";
 import { GoogleAIProvider } from "./providers/google-ai.js";
+import { NvidiaProvider } from "./providers/nvidia.js";
 import { Readable } from "stream";
 import { logger } from "./utils/logger.js";
 import { KeyManager } from "./utils/key-manager.js";
@@ -80,6 +81,7 @@ export class AIO {
     this.providerInstances.set("groq", new GroqProvider());
     this.providerInstances.set("cerebras", new CerebrasProvider());
     this.providerInstances.set("google-ai", new GoogleAIProvider());
+    this.providerInstances.set("nvidia", new NvidiaProvider());
   }
 
   /**

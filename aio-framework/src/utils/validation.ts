@@ -45,6 +45,7 @@ export const ProviderSchema = z.enum([
   "google-ai",
   "groq",
   "cerebras",
+  "nvidia",
 ]);
 
 export const ApiKeySchema = z.object({

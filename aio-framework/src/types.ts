@@ -3,7 +3,7 @@
  * All-In-One LLM Framework for multi-provider integration
  */
 
-export type Provider = "openrouter" | "groq" | "cerebras" | "google-ai";
+export type Provider = "openrouter" | "groq" | "cerebras" | "google-ai" | "nvidia";
 
 export interface Message {
   role: "system" | "user" | "assistant";

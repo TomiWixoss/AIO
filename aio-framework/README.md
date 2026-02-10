@@ -4,7 +4,7 @@
 
 ## ✨ Tính năng
 
-- 🔄 **Multi-Provider**: Hỗ trợ 4 providers (OpenRouter, Groq, Cerebras, Google AI)
+- 🔄 **Multi-Provider**: Hỗ trợ 5 providers (OpenRouter, Groq, Cerebras, Google AI, Nvidia)
 - 🎯 **Priority Management**: Quản lý độ ưu tiên cho providers, models và API keys
 - 🔁 **Auto Fallback**: Tự động chuyển sang provider/model khác khi fail
 - 🔑 **Key Rotation**: Tự động thử các API keys khác khi key hiện tại fail
@@ -285,6 +285,44 @@ const response = await aio.chatCompletion({
   stop: ["END", "STOP"],
 });
 ```
+
+## 🆓 Nvidia Provider - Free Kimi K2.5
+
+Nvidia cung cấp **Kimi K2.5** hoàn toàn miễn phí thông qua OpenAI-compatible API:
+
+```typescript
+import { AIO } from "aio";
+
+const aio = new AIO({
+  providers: [
+    {
+      provider: "nvidia",
+      apiKeys: [{ key: process.env.NVIDIA_API_KEY }],
+      models: [{ modelId: "moonshotai/kimi-k2.5" }],
+    },
+  ],
+});
+
+const response = await aio.chatCompletion({
+  provider: "nvidia",
+  model: "moonshotai/kimi-k2.5",
+  messages: [{ role: "user", content: "Explain quantum computing" }],
+  temperature: 0.7,
+});
+```
+
+**Đăng ký API key miễn phí:**
+- Truy cập: https://build.nvidia.com/settings/api-keys
+- Đăng ký và lấy API key
+- Base URL: `https://integrate.api.nvidia.com/v1/chat/completions`
+- Model ID: `moonshotai/kimi-k2.5`
+
+**Tính năng:**
+- ✅ Hoàn toàn miễn phí
+- ✅ OpenAI-compatible API
+- ✅ Hỗ trợ streaming
+- ✅ JSON response format
+- ✅ Tích hợp sẵn trong AIO Framework
 
 ## 🛠️ Tool Calling (NEW in v1.0.1)
 
@@ -737,6 +775,7 @@ interface ChatCompletionRequest {
 | Groq | https://api.groq.com/openai/v1 | llama-3.3-70b, llama-3.1-8b, etc. |
 | Cerebras | https://api.cerebras.ai/v1 | llama3.1-8b, llama3.1-70b |
 | Google AI | https://generativelanguage.googleapis.com | gemini-1.5-flash, gemini-1.5-pro |
+| Nvidia | https://integrate.api.nvidia.com/v1 | moonshotai/kimi-k2.5 (FREE) |
 
 ## 📖 Examples
 
