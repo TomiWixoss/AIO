@@ -249,6 +249,83 @@ const aio = new AIO({
 });
 ```
 
+## Token Usage Tracking
+
+Every response includes token usage information for cost management and history trimming:
+
+```typescript
+const response = await aio.chatCompletion({
+  provider: "nvidia",
+  model: "stepfun-ai/step-3.5-flash",
+  messages: [
+    { role: "user", content: "Hello!" }
+  ],
+});
+
+// Access token usage
+console.log(response.usage);
+// {
+//   prompt_tokens: 18,      // Input tokens (your messages)
+//   completion_tokens: 204, // Output tokens (AI response)
+//   total_tokens: 222       // Total tokens used
+// }
+```
+
+### Managing Conversation History
+
+As conversation grows, prompt_tokens increases. Monitor and trim history when needed:
+
+```typescript
+const messages = [];
+const MAX_TOKENS = 4000; // Your limit
+
+// Add user message
+messages.push({ role: "user", content: "What is TypeScript?" });
+
+const response = await aio.chatCompletion({
+  provider: "nvidia",
+  model: "stepfun-ai/step-3.5-flash",
+  messages,
+});
+
+// Check token usage
+if (response.usage.prompt_tokens > MAX_TOKENS) {
+  // Remove old messages (keep system prompt if any)
+  messages.splice(1, 2); // Remove oldest user+assistant pair
+  console.log("Trimmed history due to token limit");
+}
+
+// Add assistant response to history
+messages.push({
+  role: "assistant",
+  content: response.choices[0].message.content,
+});
+
+// Continue conversation...
+messages.push({ role: "user", content: "Give me an example" });
+```
+
+### Token Usage Examples
+
+```typescript
+// Short message: ~20-50 tokens
+messages: [{ role: "user", content: "Hello" }]
+// → prompt_tokens: ~20
+
+// Medium conversation: ~500-1000 tokens
+messages: [
+  { role: "user", content: "Explain TypeScript" },
+  { role: "assistant", content: "TypeScript is..." }, // ~200 tokens
+  { role: "user", content: "Give example" },
+]
+// → prompt_tokens: ~500
+
+// Long conversation: 2000+ tokens
+// 10+ message exchanges with detailed responses
+// → prompt_tokens: 2000+
+// Consider trimming history at this point
+```
+
 ## Request Parameters
 
 ```typescript
