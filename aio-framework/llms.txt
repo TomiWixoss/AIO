@@ -40,6 +40,26 @@ const response = await aio.chatCompletion({
 console.log(response.choices[0].message.content);
 ```
 
+## Using System Prompt
+
+```typescript
+// Set system prompt to define AI behavior
+const response = await aio.chatCompletion({
+  provider: "nvidia",
+  model: "stepfun-ai/step-3.5-flash",
+  systemPrompt: "You are a helpful coding assistant. Always provide code examples with explanations.",
+  messages: [
+    { role: "user", content: "How do I read a file in Node.js?" }
+  ],
+});
+
+// System prompt examples:
+// - "You are a professional translator. Translate to French."
+// - "You are a JSON API. Always respond with valid JSON only."
+// - "You are a helpful teacher. Explain concepts simply for beginners."
+// - "You are a code reviewer. Point out bugs and suggest improvements."
+```
+
 ## Streaming Responses
 
 ```typescript
@@ -507,6 +527,9 @@ await aio.chatCompletion({
   provider: "nvidia",
   model: "stepfun-ai/step-3.5-flash",
   messages: [...],
+  
+  // System prompt (defines AI behavior/role)
+  systemPrompt: "You are a helpful assistant",
   
   // Optional parameters
   temperature: 0.7,          // 0-2, higher = more creative
