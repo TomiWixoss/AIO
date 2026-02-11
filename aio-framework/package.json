@@ -1,7 +1,7 @@
 {
   "name": "aio-llm",
-  "version": "1.0.4",
-  "description": "All-In-One LLM Framework - Multi-provider LLM integration with auto-fallback, priority management, multimodal support, and text-based tool calling",
+  "version": "1.0.5",
+  "description": "All-In-One LLM Framework - Multi-provider LLM integration with auto-fallback, priority management, multimodal support, and XML-based tool calling",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",

@@ -100,6 +100,10 @@ response = await aio.chatCompletion({
 
 ## Tool Calling (Function Calling)
 
+The framework uses XML format for tool calling (inspired by Cursor IDE). The AI will automatically use this format.
+
+### Streaming Tool Calling
+
 ```typescript
 // 1. Define available tools
 const tools = [
@@ -194,6 +198,52 @@ stream.on("data", (chunk) => {
 });
 
 stream.on("end", () => console.log("\n\nDone!"));
+```
+
+### Non-Streaming Tool Calling
+
+```typescript
+// Same tool definitions and handler as above
+
+// Use tools in non-streaming mode
+const response = await aio.chatCompletion({
+  provider: "nvidia",
+  model: "stepfun-ai/step-3.5-flash",
+  messages: [
+    { role: "user", content: "What's the weather in Tokyo? Then search for best ramen." }
+  ],
+  tools,
+  onToolCall: handleToolCall,
+  maxToolIterations: 5,
+});
+
+// Get final response after all tool calls
+console.log(response.choices[0].message.content);
+console.log(`Tokens used: ${response.usage.total_tokens}`);
+```
+
+### Tool Call Format (XML)
+
+The AI will automatically use this XML format:
+
+```xml
+<tool_call>
+<function=get_weather>
+<city>Tokyo</city>
+<unit>celsius</unit>
+</function>
+</tool_call>
+```
+
+The framework will respond with:
+
+```xml
+<tool_result>
+<tool>get_weather</tool>
+<success>true</success>
+<data>{"temperature": 22, "condition": "Sunny"}</data>
+<execution_time>150ms</execution_time>
+</tool_result>
 ```
 
 ## JSON Mode (Structured Output)

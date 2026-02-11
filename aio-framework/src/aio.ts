@@ -29,6 +29,7 @@ import { AutoModeHandler } from "./core/auto-mode.js";
 import { DirectModeHandler } from "./core/direct-mode.js";
 import { StreamHandler } from "./core/stream-handler.js";
 import { ToolStreamHandler } from "./core/tool-stream-handler.js";
+import { ToolHandler } from "./core/tool-handler.js";
 
 export class AIO {
   private config: AIOConfig;
@@ -157,7 +158,32 @@ export class AIO {
         model: request.model,
         autoMode: this.config.autoMode,
         messageCount: request.messages.length,
+        hasTools: !!(request.tools && request.tools.length > 0),
       });
+    }
+
+    // Check if tool calling is requested (non-streaming)
+    if (request.tools && request.tools.length > 0 && request.onToolCall) {
+      if (!request.provider || !request.model) {
+        throw new AIOError(
+          "provider and model are required for tool calling",
+          undefined,
+          undefined,
+          400
+        );
+      }
+
+      const instance = this.getProviderInstance(request.provider);
+      const apiKeys = this.getApiKeys(request.provider);
+
+      return ToolHandler.chatCompletionWithTools(
+        request,
+        instance,
+        apiKeys,
+        this.config.maxRetries || 3,
+        this.config.retryDelay || 1000,
+        this.config.enableLogging || false
+      );
     }
 
     if (this.config.autoMode && !request.provider && !request.model) {

@@ -6,7 +6,7 @@
 import { ToolCall, ToolDefinition } from "../types.js";
 
 /**
- * Generate system prompt for tools (inspired by Cursor IDE)
+ * Generate system prompt for tools (XML format - inspired by Cursor IDE)
  */
 export function generateToolSystemPrompt(tools: ToolDefinition[]): string {
   if (tools.length === 0) return "";
@@ -15,68 +15,63 @@ export function generateToolSystemPrompt(tools: ToolDefinition[]): string {
     .map((t) => {
       const paramsDesc = Object.entries(t.parameters)
         .map(([name, info]) => {
-          let desc = `    - ${name} (${info.type}${info.required ? ", required" : ""})`;
+          let desc = `  <${name}>${info.description}`;
+          if (info.required) desc += ` (required)`;
           if (info.enum) desc += ` [${info.enum.join("|")}]`;
           if (info.default !== undefined) desc += ` (default: ${info.default})`;
-          desc += `: ${info.description}`;
+          desc += `</${name}>`;
           return desc;
         })
         .join("\n");
 
-      return `- ${t.name}: ${t.description}
+      return `<${t.name}>
+  Description: ${t.description}
   Parameters:
-${paramsDesc}`;
+${paramsDesc}
+</${t.name}>`;
     })
     .join("\n\n");
 
   return `
-<tool_calling>
-You have access to the following tools to help answer user questions:
+You have access to the following tools:
 
 ${toolDescriptions}
 
 ## How to Use Tools
 
-To use a tool, you MUST:
-1. First explain what you're about to do and why (this helps the user understand your reasoning)
-2. Then wrap your tool request in [tool] tags with this EXACT format:
+Use XML format to call tools. Example:
 
-[tool]
-{
-  "name": "tool_name",
-  "params": {"param1": "value1", "param2": "value2"},
-  "reasoning": "Brief explanation of why you're calling this tool"
-}
-[/tool]
+<tool_call>
+<function=tool_name>
+<param1>value1</param1>
+<param2>value2</param2>
+</function>
+</tool_call>
 
 ## Critical Rules
 
-- ALWAYS explain your reasoning before calling a tool
-- ONLY use tools when necessary to answer the user's question
 - Use the EXACT parameter names as specified above
-- After outputting [/tool], STOP generating immediately - the system will execute the tool
-- DO NOT generate fake tool results - wait for the real result in [tool_result] tags
-- DO NOT apologize excessively - just focus on solving the problem
+- After outputting </tool_call>, STOP generating - the system will execute the tool
+- DO NOT generate fake tool results - wait for the real result
 - If a tool fails, analyze the error and try a different approach
-- Address the root cause of problems, not just symptoms
-- DO NOT loop more than 3 times trying to fix the same error
+- Focus on solving the problem, not apologizing
 
 ## Tool Result Format
 
-After you call a tool, the system will provide results in this format:
-[tool_result]
-Tool: tool_name
-Success: true/false
-Data: {...} or Error: error message
-[/tool_result]
+After you call a tool, the system provides results:
 
-Use this information to continue your response or call additional tools if needed.
-</tool_calling>
+<tool_result>
+<tool>tool_name</tool>
+<success>true/false</success>
+<data>...</data>
+</tool_result>
+
+Use this information to continue or call additional tools if needed.
 `;
 }
 
 /**
- * Format tool result for LLM (with metadata)
+ * Format tool result for LLM (XML format with metadata)
  */
 export function formatToolResult(
   toolName: string, 
@@ -88,28 +83,28 @@ export function formatToolResult(
     suggestion?: string;
   }
 ): string {
-  let output = `[tool_result]
-Tool: ${toolName}
-Success: ${!error}`;
+  let output = `<tool_result>
+<tool>${toolName}</tool>
+<success>${!error}</success>`;
 
   if (error) {
-    output += `\nError: ${error}`;
+    output += `\n<error>${error}</error>`;
     if (metadata?.suggestion) {
-      output += `\nSuggestion: ${metadata.suggestion}`;
+      output += `\n<suggestion>${metadata.suggestion}</suggestion>`;
     }
   } else {
-    output += `\nData: ${JSON.stringify(result, null, 2)}`;
+    output += `\n<data>${JSON.stringify(result)}</data>`;
   }
 
   if (metadata?.executionTime) {
-    output += `\nExecution Time: ${metadata.executionTime}ms`;
+    output += `\n<execution_time>${metadata.executionTime}ms</execution_time>`;
   }
 
   if (metadata?.retryCount && metadata.retryCount > 0) {
-    output += `\nRetries: ${metadata.retryCount}`;
+    output += `\n<retries>${metadata.retryCount}</retries>`;
   }
 
-  output += `\n[/tool_result]`;
+  output += `\n</tool_result>`;
   
   return output;
 }
@@ -171,7 +166,7 @@ export function applyDefaultValues(
 }
 
 /**
- * Tool Stream Parser
+ * Tool Stream Parser (XML format)
  * Parse streaming chunks để detect và extract tool calls
  */
 export class ToolStreamParser {
@@ -186,58 +181,36 @@ export class ToolStreamParser {
    */
   processChunk(chunk: string): {
     text: string; // Text để stream ra
-    toolCallPending?: boolean; // Tag [tool] mở
+    toolCallPending?: boolean; // Tag <tool_call> mở
     toolCall?: ToolCall; // Tool call hoàn chỉnh khi tag đóng
     toolCallError?: string; // Lỗi parse tool call
   } {
     this.buffer += chunk;
 
-    // Check for [tool opening tag (handle partial tags)
-    if (!this.inToolTag && (this.buffer.includes("[tool]") || this.buffer.includes("[tool"))) {
-      let splitPoint = -1;
-      let tagToSplit = "";
-      
-      if (this.buffer.includes("[tool]")) {
-        splitPoint = this.buffer.indexOf("[tool]");
-        tagToSplit = "[tool]";
-      } else if (this.buffer.includes("[tool")) {
-        // Partial tag at end of buffer - wait for more data
-        // But if we have newline after [tool, it's complete
-        const toolIndex = this.buffer.indexOf("[tool");
-        const afterTool = this.buffer.substring(toolIndex + 5);
-        if (afterTool.includes("\n") || afterTool.includes("]")) {
-          splitPoint = toolIndex;
-          tagToSplit = "[tool";
-        }
-      }
-      
-      if (splitPoint >= 0) {
-        this.textBeforeTool = this.buffer.substring(0, splitPoint);
-        this.buffer = this.buffer.substring(splitPoint + tagToSplit.length);
-        this.inToolTag = true;
-        this.toolContent = "";
+    // Check for <tool_call> opening tag
+    if (!this.inToolTag && this.buffer.includes("<tool_call>")) {
+      const splitPoint = this.buffer.indexOf("<tool_call>");
+      this.textBeforeTool = this.buffer.substring(0, splitPoint);
+      this.buffer = this.buffer.substring(splitPoint + 11); // length of "<tool_call>"
+      this.inToolTag = true;
+      this.toolContent = "";
 
-        return {
-          text: this.textBeforeTool,
-          toolCallPending: true,
-        };
-      }
+      return {
+        text: this.textBeforeTool,
+        toolCallPending: true,
+      };
     }
 
-    // Check for [/tool] closing tag
-    if (this.inToolTag && this.buffer.includes("[/tool]")) {
-      const parts = this.buffer.split("[/tool]");
+    // Check for </tool_call> closing tag
+    if (this.inToolTag && this.buffer.includes("</tool_call>")) {
+      const parts = this.buffer.split("</tool_call>");
       this.toolContent += parts[0];
-      this.buffer = parts.slice(1).join("[/tool]");
+      this.buffer = parts.slice(1).join("</tool_call>");
       this.inToolTag = false;
 
-      // Parse tool call
+      // Parse XML tool call
       try {
-        const parsed = JSON.parse(this.toolContent.trim());
-        const toolCall: ToolCall = {
-          name: parsed.name,
-          params: parsed.params || {},
-        };
+        const toolCall = this.parseXMLToolCall(this.toolContent.trim());
 
         // Reset
         this.toolContent = "";
@@ -270,6 +243,50 @@ export class ToolStreamParser {
     const text = this.buffer;
     this.buffer = "";
     return { text };
+  }
+
+  /**
+   * Parse XML tool call format:
+   * <function=tool_name>
+   * <param1>value1</param1>
+   * <param2>value2</param2>
+   * </function>
+   */
+  private parseXMLToolCall(xmlContent: string): ToolCall {
+    // Extract function name from <function=name>
+    const functionMatch = xmlContent.match(/<function=(\w+)>/);
+    if (!functionMatch) {
+      throw new Error("Could not find function name in tool call");
+    }
+
+    const toolName = functionMatch[1];
+    const params: Record<string, any> = {};
+
+    // Extract parameters using regex
+    const paramRegex = /<(\w+)>(.*?)<\/\1>/gs;
+    let match;
+
+    while ((match = paramRegex.exec(xmlContent)) !== null) {
+      const [, paramName, paramValue] = match;
+      
+      // Skip the function tag itself
+      if (paramName === "function") continue;
+
+      // Try to parse as number if it looks like one
+      const trimmedValue = paramValue.trim();
+      if (/^\d+$/.test(trimmedValue)) {
+        params[paramName] = parseInt(trimmedValue, 10);
+      } else if (/^\d+\.\d+$/.test(trimmedValue)) {
+        params[paramName] = parseFloat(trimmedValue);
+      } else {
+        params[paramName] = trimmedValue;
+      }
+    }
+
+    return {
+      name: toolName,
+      params,
+    };
   }
 
   /**
